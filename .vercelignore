@@ -1,0 +1,11 @@
+apps/api
+apps/worker
+infra
+docs
+coverage
+playwright-report
+test-results
+.netlify
+netlify.toml
+flathunter-plan.md
+implementation_plan.md

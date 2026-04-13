@@ -1,0 +1,23 @@
+{
+  "name": "@flathunter/db",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "migrate": "tsx src/migrate.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@flathunter/shared": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.4.2",
+    "@types/pg": "^8.15.6",
+    "drizzle-kit": "^0.31.10"
+  }
+}

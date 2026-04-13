@@ -1,0 +1,22 @@
+{
+  "name": "@flathunter/worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup --config tsup.config.ts",
+    "dev": "tsx watch src/dev.ts",
+    "dev:run-once": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "start:loop": "tsx src/dev.ts",
+    "benchmark:llm": "tsx src/benchmarks/llm.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@flathunter/db": "workspace:*",
+    "@flathunter/shared": "workspace:*",
+    "@playwright/test": "^1.58.2",
+    "cheerio": "^1.1.2",
+    "zod": "^4.1.12"
+  }
+}

@@ -1,0 +1,16 @@
+[build]
+command = "npm install -g pnpm@10.33.0 && pnpm install --frozen-lockfile && pnpm --filter @flathunter/web build"
+publish = "apps/web/dist"
+edge_functions = "apps/web/netlify/edge-functions"
+
+[build.environment]
+NODE_VERSION = "22"
+
+[[edge_functions]]
+function = "api-proxy"
+path = "/api/*"
+
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
