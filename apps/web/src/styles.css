@@ -140,12 +140,17 @@
   select {
     font: inherit;
   }
+  .maplibregl-popup-content {
+    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+  }
+  .maplibregl-popup-tip {
+    @apply hidden!;
+  }
 }
 
-.leaflet-container {
-  font: inherit;
-}
-
-.leaflet-control-attribution {
-  font-size: 10px;
+@media (min-width: 80rem) {
+  .fh-viewport-workspace {
+    height: calc(100svh - 5.5rem);
+    overflow: hidden;
+  }
 }

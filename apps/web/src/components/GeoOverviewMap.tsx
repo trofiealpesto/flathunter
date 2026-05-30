@@ -1,10 +1,12 @@
-import { useEffect } from "react";
-import { CircleMarker, MapContainer, TileLayer, Tooltip as LeafletTooltip, useMap } from "react-leaflet";
+import { useEffect, useState } from "react";
 
 import type { DashboardStats, OfficeLocation } from "@flathunter/shared";
 
+import { Map, MapControls, MapMarker, MarkerContent, MarkerTooltip, useMap } from "@/components/ui/map";
+import { cn } from "@/lib/utils";
+
 import { ToneBadge } from "./ToneBadge";
-import { formatDistance, getEligibilityTone } from "../lib/geo";
+import { getEligibilityTone } from "../lib/geo";
 
 type GeoOverviewMapProps = {
   officeLocation: OfficeLocation | null;
@@ -19,22 +21,30 @@ type GeoOverviewMapProps = {
   onPointSelect: (id: number) => void;
 };
 
-const berlinCenter: [number, number] = [52.52, 13.405];
+const berlinCenter: [number, number] = [13.405, 52.52];
+const initialZoom = 11;
+const listingPointZoomThreshold = 11.8;
+const districtFocusZoom = 12.6;
 
 function markerRadius(count: number) {
   return Math.max(8, Math.min(22, 6 + count * 1.5));
 }
 
-function MapSizeSync() {
-  const map = useMap();
+function MapSizeSync({ center }: { center: [number, number] }) {
+  const { isLoaded, map } = useMap();
 
   useEffect(() => {
+    if (!map) {
+      return;
+    }
+
+    const currentMap = map;
     const frame = window.requestAnimationFrame(() => {
-      map.invalidateSize();
+      currentMap.resize();
     });
 
     function handleResize() {
-      map.invalidateSize();
+      currentMap.resize();
     }
 
     window.addEventListener("resize", handleResize);
@@ -45,7 +55,72 @@ function MapSizeSync() {
     };
   }, [map]);
 
+  useEffect(() => {
+    if (!map || !isLoaded) {
+      return;
+    }
+
+    map.easeTo({ center, duration: 0 });
+  }, [center[0], center[1], isLoaded, map]);
+
   return null;
+}
+
+function DistrictMarker({
+  district,
+  isActive,
+  onDistrictSelect
+}: {
+  district: DashboardStats["districtGeoSummary"][number];
+  isActive: boolean;
+  onDistrictSelect: (district: string) => void;
+}) {
+  const { map } = useMap();
+  const radius = markerRadius(district.count);
+
+  return (
+    <MapMarker
+      key={district.district}
+      latitude={district.latitude}
+      longitude={district.longitude}
+      onClick={() => {
+        onDistrictSelect(district.district);
+        map?.flyTo({
+          center: [district.longitude, district.latitude],
+          duration: 1200,
+          essential: true,
+          zoom: districtFocusZoom
+        });
+      }}
+    >
+      <MarkerContent>
+        <button
+          aria-label={`${district.district} district marker`}
+          className={cn(
+            "block cursor-pointer appearance-none rounded-full border p-0 shadow-md transition-transform duration-150",
+            isActive ? "scale-110 ring-2 ring-background" : "hover:scale-105"
+          )}
+          style={{
+            backgroundColor: isActive ? "#111111" : "#262626",
+            borderColor: isActive ? "#111111" : "#5f5f5f",
+            height: radius * 2,
+            opacity: isActive ? 0.88 : 0.64,
+            width: radius * 2
+          }}
+          type="button"
+        />
+      </MarkerContent>
+      <MarkerTooltip offset={Math.max(18, radius + 8)}>
+        <div className="grid gap-0.5 text-xs">
+          <strong>{district.district}</strong>
+          <span>{district.count} listings</span>
+          <span>{district.averageWarmRent ? `${Math.round(district.averageWarmRent)} EUR avg` : "Rent n/a"}</span>
+          <span>{district.averageScore ? `${district.averageScore.toFixed(1)} avg score` : "Score n/a"}</span>
+          <span>Click to zoom into listings</span>
+        </div>
+      </MarkerTooltip>
+    </MapMarker>
+  );
 }
 
 export function GeoOverviewMap({
@@ -60,49 +135,40 @@ export function GeoOverviewMap({
   onPointHover,
   onPointSelect
 }: GeoOverviewMapProps) {
+  const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const center: [number, number] = officeLocation
-    ? [officeLocation.latitude, officeLocation.longitude]
+    ? [officeLocation.longitude, officeLocation.latitude]
     : districts[0]
-      ? [districts[0].latitude, districts[0].longitude]
+      ? [districts[0].longitude, districts[0].latitude]
       : berlinCenter;
+  const showListingMarkers = currentZoom >= listingPointZoomThreshold;
 
   return (
     <div className="relative h-[420px] overflow-hidden rounded-lg border bg-muted">
-      <MapContainer center={center} className="h-full w-full" scrollWheelZoom={false} zoom={11}>
-        <MapSizeSync />
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+      <Map
+        center={center}
+        className="h-full w-full"
+        dragRotate={false}
+        onViewportChange={(viewport) => setCurrentZoom(viewport.zoom)}
+        pitchWithRotate={false}
+        scrollZoom={false}
+        zoom={initialZoom}
+      >
+        <MapSizeSync center={center} />
+        <MapControls position="bottom-right" showCompass showFullscreen />
 
-        {districts.map((district) => {
-          const isActive = activeDistrict === district.district;
+        {!showListingMarkers
+          ? districts.map((district) => (
+              <DistrictMarker
+                district={district}
+                isActive={activeDistrict === district.district}
+                key={district.district}
+                onDistrictSelect={onDistrictSelect}
+              />
+            ))
+          : null}
 
-          return (
-            <CircleMarker
-              center={[district.latitude, district.longitude]}
-              color={isActive ? "#111111" : "#5f5f5f"}
-              eventHandlers={{ click: () => onDistrictSelect(district.district) }}
-              fillColor={isActive ? "#111111" : "#262626"}
-              fillOpacity={isActive ? 0.88 : 0.64}
-              key={district.district}
-              radius={markerRadius(district.count)}
-              weight={isActive ? 2.5 : 1.5}
-            >
-              <LeafletTooltip direction="top" offset={[0, -8]} opacity={1}>
-                <div className="grid gap-0.5 text-xs">
-                  <strong>{district.district}</strong>
-                  <span>{district.count} listings</span>
-                  <span>{district.averageWarmRent ? `${Math.round(district.averageWarmRent)} EUR avg` : "Rent n/a"}</span>
-                  <span>{district.averageScore ? `${district.averageScore.toFixed(1)} avg score` : "Score n/a"}</span>
-                  {officeLocation ? <span>{formatDistance(district.averageDistanceKm)} avg distance</span> : null}
-                </div>
-              </LeafletTooltip>
-            </CircleMarker>
-          );
-        })}
-
-        {showListingPoints
+        {showListingMarkers
           ? listingPoints
               .filter((point) => point.latitude != null && point.longitude != null)
               .map((point) => {
@@ -110,21 +176,30 @@ export function GeoOverviewMap({
                 const isHovered = hoveredPointId === point.id;
 
                 return (
-                  <CircleMarker
-                    center={[point.latitude as number, point.longitude as number]}
-                    color="#111111"
-                    eventHandlers={{
-                      click: () => onPointSelect(point.id),
-                      mouseout: () => onPointHover(null),
-                      mouseover: () => onPointHover(point.id)
-                    }}
-                    fillColor={getEligibilityTone(point.eligibilityState)}
-                    fillOpacity={0.92}
+                  <MapMarker
                     key={`point-${point.id}`}
-                    radius={isSelected || isHovered ? 7 : 5}
-                    weight={isSelected || isHovered ? 2 : 1}
+                    latitude={point.latitude as number}
+                    longitude={point.longitude as number}
+                    onClick={() => onPointSelect(point.id)}
+                    onMouseEnter={() => onPointHover(point.id)}
+                    onMouseLeave={() => onPointHover(null)}
                   >
-                    <LeafletTooltip direction="top" offset={[0, -8]} opacity={1}>
+                    <MarkerContent>
+                      <button
+                        aria-label={`${point.title} listing marker`}
+                        className={cn(
+                          "block cursor-pointer appearance-none rounded-full border border-neutral-950 p-0 shadow-sm transition-transform duration-150",
+                          isSelected || isHovered ? "scale-110 ring-2 ring-background" : "hover:scale-110"
+                        )}
+                        style={{
+                          backgroundColor: getEligibilityTone(point.eligibilityState),
+                          height: isSelected || isHovered ? 14 : 10,
+                          width: isSelected || isHovered ? 14 : 10
+                        }}
+                        type="button"
+                      />
+                    </MarkerContent>
+                    <MarkerTooltip offset={18}>
                       <div className="grid gap-0.5 text-xs">
                         <strong>{point.title}</strong>
                         <span>
@@ -133,36 +208,42 @@ export function GeoOverviewMap({
                         <span>{point.rent != null ? `${Math.round(point.rent)} EUR` : "Rent n/a"}</span>
                         <span>{point.score != null ? `Score ${point.score}` : "Score n/a"}</span>
                       </div>
-                    </LeafletTooltip>
-                  </CircleMarker>
+                    </MarkerTooltip>
+                  </MapMarker>
                 );
               })
           : null}
 
         {officeLocation ? (
-          <CircleMarker
-            center={[officeLocation.latitude, officeLocation.longitude]}
-            color="#111111"
-            fillColor="#059669"
-            fillOpacity={1}
-            radius={9}
-            weight={2}
+          <MapMarker
+            latitude={officeLocation.latitude}
+            longitude={officeLocation.longitude}
           >
-            <LeafletTooltip direction="top" offset={[0, -8]} opacity={1}>
+            <MarkerContent>
+              <span
+                aria-label={`${officeLocation.label} office marker`}
+                className="block size-[18px] rounded-full border-2 border-neutral-950 bg-emerald-600 shadow-md ring-2 ring-background"
+              />
+            </MarkerContent>
+            <MarkerTooltip offset={20}>
               <div className="grid gap-0.5 text-xs">
                 <strong>{officeLocation.label}</strong>
                 <span>{officeLocation.address}</span>
               </div>
-            </LeafletTooltip>
-          </CircleMarker>
+            </MarkerTooltip>
+          </MapMarker>
         ) : null}
-      </MapContainer>
+      </Map>
 
-      <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center gap-2 rounded-lg border bg-background/90 p-2 shadow-sm backdrop-blur">
-        <ToneBadge tone="info">District-first map</ToneBadge>
+      <div className="absolute left-3 right-3 top-3 z-20 flex flex-wrap items-center gap-2 rounded-lg border bg-background/90 p-2 shadow-sm backdrop-blur">
+        <ToneBadge tone="info">{showListingMarkers ? "Listing detail map" : "District-first map"}</ToneBadge>
         {officeLocation ? <ToneBadge tone="success">Office: {officeLocation.label}</ToneBadge> : null}
         {activeDistrict ? <ToneBadge tone="warning">District {activeDistrict}</ToneBadge> : null}
-        {showListingPoints ? <ToneBadge>{listingPoints.length} linked points</ToneBadge> : null}
+        {showListingMarkers ? (
+          <ToneBadge>{listingPoints.length} linked points</ToneBadge>
+        ) : (
+          <ToneBadge>{showListingPoints ? "Zoom for filtered points" : "Zoom for listing points"}</ToneBadge>
+        )}
         {!officeLocation ? (
           <span className="basis-full text-xs text-muted-foreground">
             Add an office location in Settings to unlock distance bands and per-listing travel context.

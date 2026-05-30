@@ -114,7 +114,7 @@ export function ListingsTable({
   });
 
   return (
-    <div className="flex min-h-[540px] min-w-0 flex-col rounded-xl border bg-card text-card-foreground">
+    <div className="flex min-h-[540px] min-w-0 flex-col rounded-xl border bg-card text-card-foreground xl:h-full xl:min-h-0 xl:overflow-hidden">
       <div className="flex flex-col gap-3 border-b p-4 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-1">
           <h2 className="font-medium">Listings</h2>
@@ -216,7 +216,7 @@ export function ListingsTable({
         </Select>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea className="min-h-0 flex-1" scrollbars="both">
         {loading ? (
           <div className="grid min-h-80 place-items-center">
             <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="Loading listings" />
@@ -250,7 +250,7 @@ export function ListingsTable({
             </div>
           </div>
         ) : (
-          <Table>
+          <Table className="min-w-[1120px]">
             <TableHeader className="sticky top-0 z-10 bg-card">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>

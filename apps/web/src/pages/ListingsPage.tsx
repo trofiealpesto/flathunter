@@ -208,7 +208,7 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div className="fh-viewport-workspace flex min-h-0 flex-col gap-4">
       <SectionHeader
         actions={
           <div className="flex flex-wrap items-center gap-3">
@@ -239,7 +239,7 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
         title="Listings"
       />
 
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
+      <div className="grid min-h-0 flex-1 gap-4 xl:h-full xl:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)] xl:overflow-hidden">
         <ListingsTable
           error={listingsError}
           filters={filters}
@@ -252,7 +252,7 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
           selectedListingId={selectedListingId}
         />
 
-        <div className="min-w-0">
+        <div className="min-w-0 xl:min-h-0 xl:overflow-hidden">
           {detailError && !selectedListing ? (
             <SurfaceCard
               subtitle="The selected listing could not be loaded from the protected API."

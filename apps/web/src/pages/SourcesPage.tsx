@@ -434,7 +434,7 @@ export function SourcesPage({
       : "Save credentials and refresh the session before enabling this source.";
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="fh-viewport-workspace flex min-h-0 flex-col gap-4">
       <SectionHeader
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -449,9 +449,14 @@ export function SourcesPage({
         title="Sources"
       />
 
-      <div className="grid min-h-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)]">
-        <SurfaceCard subtitle="All worker sources ordered by portal and health." title="Source health">
-          <ScrollArea className="h-[560px]">
+      <div className="grid min-h-0 flex-1 gap-4 xl:h-full xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)] xl:overflow-hidden">
+        <SurfaceCard
+          className="xl:h-full xl:min-h-0"
+          contentClassName="xl:flex xl:min-h-0 xl:flex-1 xl:flex-col"
+          subtitle="All worker sources ordered by portal and health."
+          title="Source health"
+        >
+          <ScrollArea className="xl:min-h-0 xl:flex-1">
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
@@ -494,10 +499,12 @@ export function SourcesPage({
 
         <SurfaceCard
           actions={<ToneBadge tone={selectedBadge.tone}>{selectedBadge.text}</ToneBadge>}
+          className="xl:h-full xl:min-h-0"
+          contentClassName="xl:flex xl:min-h-0 xl:flex-1 xl:flex-col"
           subtitle="Portal runtime config consumed by the worker."
           title={selectedSource.portal}
         >
-          <ScrollArea className="h-[560px] pr-3">
+          <ScrollArea className="pr-3 xl:min-h-0 xl:flex-1">
             <div className="space-y-5">
               <div className="space-y-3 rounded-lg border p-4">
                 <div className="flex flex-wrap gap-2">

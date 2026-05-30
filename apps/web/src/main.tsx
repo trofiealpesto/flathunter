@@ -1,7 +1,5 @@
 import { createRoot } from "react-dom/client";
 
-import "leaflet/dist/leaflet.css";
-
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import App from "./App";

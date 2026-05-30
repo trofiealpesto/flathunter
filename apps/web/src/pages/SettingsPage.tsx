@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import type { AppSettings, GeoSearchResult } from "@flathunter/shared";
 
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 import { FormField } from "../components/FormField";
@@ -32,6 +33,8 @@ const sections = [
   { id: "semantic-rules", label: "Semantic rules" }
 ] as const;
 
+type SettingsSectionId = (typeof sections)[number]["id"];
+
 function toMultiline(value: string[]) {
   return value.join("\n");
 }
@@ -43,6 +46,10 @@ function parseMultiline(value: string) {
     .filter(Boolean);
 }
 
+function isSettingsSectionId(value: string): value is SettingsSectionId {
+  return sections.some((section) => section.id === value);
+}
+
 export function SettingsPage({
   settings,
   loading,
@@ -51,6 +58,7 @@ export function SettingsPage({
   onSearchOfficeLocation
 }: SettingsPageProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [draft, setDraft] = useState<AppSettings | null>(settings);
   const [saving, setSaving] = useState(false);
   const [officeQuery, setOfficeQuery] = useState("");
@@ -62,7 +70,25 @@ export function SettingsPage({
     setDraft(settings);
   }, [settings]);
 
-  const activeHash = useMemo(() => location.hash.replace(/^#/, "") || "profile", [location.hash]);
+  const activeSection = useMemo<SettingsSectionId>(() => {
+    const hash = location.hash.replace(/^#/, "");
+    return isSettingsSectionId(hash) ? hash : "profile";
+  }, [location.hash]);
+
+  const handleSectionChange = (value: string) => {
+    if (!isSettingsSectionId(value)) {
+      return;
+    }
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: location.search,
+        hash: `#${value}`
+      },
+      { replace: true }
+    );
+  };
 
   if (loading && !draft) {
     return (
@@ -106,9 +132,21 @@ export function SettingsPage({
         title="Settings"
       />
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
+      <Tabs className="min-w-0" onValueChange={handleSectionChange} value={activeSection}>
+        <div className="sticky top-0 z-20 -mx-4 border-y bg-background/95 px-4 py-2 backdrop-blur md:-mx-5 md:px-5">
+          <ScrollArea className="w-full pb-2" scrollbars="horizontal">
+            <TabsList className="w-max justify-start">
+              {sections.map((section) => (
+                <TabsTrigger className="px-3" key={section.id} value={section.id}>
+                  {section.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </ScrollArea>
+        </div>
+
         <div className="grid gap-4">
-          <section id="profile">
+          <TabsContent className="mt-0" id="profile" value="profile">
             <SurfaceCard subtitle="Contact and bio used for downstream outreach flows." title="Profile">
               <div className="grid gap-4 md:grid-cols-2">
                 <FormField htmlFor="profile-full-name" label="Full name">
@@ -159,9 +197,9 @@ export function SettingsPage({
                 </FormField>
               </div>
             </SurfaceCard>
-          </section>
+          </TabsContent>
 
-          <section id="search">
+          <TabsContent className="mt-0" id="search" value="search">
             <SurfaceCard subtitle="Search heuristics shared with the worker." title="Search preferences">
               <div className="grid gap-4 md:grid-cols-2">
                 <FormField htmlFor="search-city" label="City">
@@ -194,9 +232,9 @@ export function SettingsPage({
                 </FormField>
               </div>
             </SurfaceCard>
-          </section>
+          </TabsContent>
 
-          <section id="office-location">
+          <TabsContent className="mt-0" id="office-location" value="office-location">
             <SurfaceCard
               actions={draft.search.officeLocation ? <ToneBadge tone="success">{draft.search.officeLocation.label}</ToneBadge> : <ToneBadge tone="warning">Not configured</ToneBadge>}
               subtitle="Set the office once to expose geographic distance throughout the product."
@@ -296,9 +334,9 @@ export function SettingsPage({
                 </Button>
               </div>
             </SurfaceCard>
-          </section>
+          </TabsContent>
 
-          <section id="scoring">
+          <TabsContent className="mt-0" id="scoring" value="scoring">
             <SurfaceCard subtitle="Deterministic score thresholds and bonuses." title="Scoring">
               <div className="grid gap-4 md:grid-cols-3">
                 {[
@@ -339,9 +377,9 @@ export function SettingsPage({
                 ))}
               </div>
             </SurfaceCard>
-          </section>
+          </TabsContent>
 
-          <section id="runtime">
+          <TabsContent className="mt-0" id="runtime" value="runtime">
             <SurfaceCard subtitle="Worker and semantic runtime behavior." title="Runtime">
               <div className="grid gap-4 md:grid-cols-2">
                 {[
@@ -416,9 +454,9 @@ export function SettingsPage({
                 </FormField>
               </div>
             </SurfaceCard>
-          </section>
+          </TabsContent>
 
-          <section id="semantic-rules">
+          <TabsContent className="mt-0" id="semantic-rules" value="semantic-rules">
             <SurfaceCard subtitle="Textual constraints passed into semantic classification." title="Semantic rules">
               <div className="grid gap-4 md:grid-cols-2">
                 <FormField description="One rule per line or comma separated." htmlFor="semantic-must-match" label="Must match">
@@ -463,29 +501,9 @@ export function SettingsPage({
                 </FormField>
               </div>
             </SurfaceCard>
-          </section>
+          </TabsContent>
         </div>
-
-        <aside className="hidden xl:block">
-          <SurfaceCard subtitle="Jump between configuration groups." title="Sections">
-            <ScrollArea className="max-h-[calc(100svh-12rem)]">
-              <nav className="grid gap-1">
-                {sections.map((section) => (
-                  <a
-                    className={`rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted ${
-                      activeHash === section.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground"
-                    }`}
-                    href={`#${section.id}`}
-                    key={section.id}
-                  >
-                    {section.label}
-                  </a>
-                ))}
-              </nav>
-            </ScrollArea>
-          </SurfaceCard>
-        </aside>
-      </div>
+      </Tabs>
     </div>
   );
 }
