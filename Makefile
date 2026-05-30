@@ -7,11 +7,13 @@ endif
 
 COMPOSE := docker compose -f infra/docker-compose.yml
 ORACLE_COMPOSE := docker compose -f infra/oracle/docker-compose.yml --env-file infra/oracle/.env
+PROD_COMPOSE := $(ORACLE_COMPOSE)
+PROD_BRANCH ?= main
 PNPM := pnpm
 PNPM_VERSION := 10.33.0
 NODE22 := ./scripts/with-node22.sh
 
-.PHONY: help check-env oracle-check-env check-docker ensure-node ensure-pnpm install infra-up infra-down infra-logs oracle-up oracle-down oracle-logs oracle-config migrate dev start worker worker-dev build test typecheck clean
+.PHONY: help check-env oracle-check-env prod-check-branch prod-check-docker check-docker ensure-node ensure-pnpm install infra-up infra-down infra-logs oracle-up oracle-down oracle-logs oracle-config prod-build prod-deploy prod-stop prod-logs prod-config deploy-prod stop-prod migrate dev start worker worker-dev build test typecheck clean
 
 help:
 	@echo "FlatHunter Make targets"
@@ -26,6 +28,9 @@ help:
 	@echo "  make oracle-down Stop the Oracle production stack"
 	@echo "  make oracle-logs Tail Oracle production logs"
 	@echo "  make oracle-config Validate the Oracle docker-compose config"
+	@echo "  make prod-deploy Pull, build, migrate, and start the production server stack"
+	@echo "  make prod-stop   Stop the full production server stack"
+	@echo "  make prod-logs   Tail production server logs"
 	@echo "  make install     Install workspace dependencies"
 	@echo "  make migrate     Apply database migrations"
 	@echo "  make test        Run the full test suite"
@@ -41,6 +46,17 @@ check-env:
 
 oracle-check-env:
 	@test -f infra/oracle/.env || (echo "Missing infra/oracle/.env file. Copy infra/oracle/.env.example first." && exit 1)
+
+prod-check-branch:
+	@branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(PROD_BRANCH)" ]; then \
+		echo "Production deploy expects branch $(PROD_BRANCH), but current branch is $$branch."; \
+		echo "Switch branches or override with: make prod-deploy PROD_BRANCH=$$branch"; \
+		exit 1; \
+	fi
+
+prod-check-docker:
+	@docker info >/dev/null 2>&1 || (echo "Docker daemon is not running or this user cannot access it." && echo "Start Docker Engine and ensure the current user can run docker." && exit 1)
 
 ensure-node:
 	@$(NODE22) node -v >/dev/null
@@ -105,6 +121,26 @@ oracle-down: oracle-check-env
 
 oracle-logs: oracle-check-env
 	$(ORACLE_COMPOSE) logs -f
+
+prod-config: oracle-config
+
+prod-build: oracle-check-env prod-check-docker
+	$(PROD_COMPOSE) build --pull
+
+prod-deploy: oracle-check-env prod-check-branch prod-check-docker
+	git pull --ff-only origin $(PROD_BRANCH)
+	$(PROD_COMPOSE) config >/dev/null
+	$(PROD_COMPOSE) build --pull
+	$(PROD_COMPOSE) up -d --remove-orphans
+
+prod-stop: oracle-check-env
+	$(PROD_COMPOSE) down --remove-orphans
+
+prod-logs: oracle-logs
+
+deploy-prod: prod-deploy
+
+stop-prod: prod-stop
 
 migrate: check-env ensure-pnpm
 	$(NODE22) $(PNPM) db:migrate

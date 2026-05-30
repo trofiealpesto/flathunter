@@ -13,6 +13,8 @@ This profile keeps the browser app on Vercel and runs the backend stack on one O
 - `infra/oracle/docker-compose.yml`
 - `infra/oracle/Caddyfile`
 - `infra/oracle/.env.example`
+- `make prod-deploy`
+- `make prod-stop`
 - `make oracle-config`
 - `make oracle-up`
 - `make oracle-down`
@@ -80,17 +82,32 @@ Wait until the record resolves publicly before starting Caddy, otherwise certifi
 
 ```bash
 make oracle-config
-make oracle-up
+make prod-deploy
 make oracle-logs
 ```
 
-`oracle-up` does this:
+`prod-deploy` does this:
 
+- pulls the latest `origin/main` with `--ff-only`
+- validates the production compose config
+- rebuilds the production Docker images
 - starts Postgres
 - runs DB migrations once
 - starts the API
 - starts the worker loop from `apps/worker/dist/dev.js`
 - exposes the API publicly through Caddy with HTTPS
+
+To deploy a different branch from the server checkout:
+
+```bash
+make prod-deploy PROD_BRANCH=<branch-name>
+```
+
+To stop the full production stack without deleting persistent volumes:
+
+```bash
+make prod-stop
+```
 
 ## 6. Configure Vercel
 

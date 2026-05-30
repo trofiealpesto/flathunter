@@ -71,6 +71,15 @@ make test
 make infra-down
 ```
 
+Production server shortcuts:
+
+```bash
+make prod-deploy
+make prod-stop
+```
+
+`prod-deploy` is intended to be run from the cloned repo on the production VM. It pulls the latest `origin/main`, rebuilds the production Docker images, applies migrations through the compose stack, and starts the API, worker, Postgres, and Caddy services. `prod-stop` stops that production stack without deleting persistent volumes.
+
 ## GitHub OAuth callback URLs
 
 - Local: `http://localhost:3000/api/auth/github/callback`
