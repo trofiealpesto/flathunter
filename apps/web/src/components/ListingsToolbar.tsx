@@ -1,6 +1,10 @@
-import { Button, NumberField, SelectList, TextField } from "gestalt";
-
 import type { EligibilityState, ListingFilters, Portal, UserStatus } from "@flathunter/shared";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+import { FormField } from "./FormField";
 
 type ListingsToolbarProps = {
   filters: ListingFilters;
@@ -11,96 +15,96 @@ type ListingsToolbarProps = {
 
 export function ListingsToolbar({ filters, hasActiveFilters, onChange, onReset }: ListingsToolbarProps) {
   return (
-    <div className="listings-toolbar">
-      <div className="listings-toolbar-grid">
-        <SelectList
-          id="portal"
-          label="Portal"
-          size="lg"
-          value={filters.portal ?? ""}
-          onChange={({ value }) => onChange({ portal: (value || undefined) as Portal | undefined })}
+    <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
+      <FormField label="Portal">
+        <Select
+          onValueChange={(value) => onChange({ portal: value === "all" ? undefined : (value as Portal) })}
+          value={filters.portal ?? "all"}
         >
-          <SelectList.Option label="All portals" value="" />
-          <SelectList.Option label="Immowelt" value="IMMOWELT" />
-          <SelectList.Option label="ImmoScout24" value="IMMOSCOUT24" />
-          <SelectList.Option label="Kleinanzeigen" value="KLEINANZEIGEN" />
-          <SelectList.Option label="WG-Gesucht" value="WG_GESUCHT" />
-          <SelectList.Option label="Flatsforfriendz" value="FLATSFORFRIENDZ" />
-        </SelectList>
-
-        <SelectList
-          id="status"
-          label="Status"
-          size="lg"
-          value={filters.userStatus ?? ""}
-          onChange={({ value }) => onChange({ userStatus: (value || undefined) as UserStatus | undefined })}
+          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All portals</SelectItem>
+            <SelectItem value="IMMOWELT">Immowelt</SelectItem>
+            <SelectItem value="IMMOSCOUT24">ImmoScout24</SelectItem>
+            <SelectItem value="KLEINANZEIGEN">Kleinanzeigen</SelectItem>
+            <SelectItem value="WG_GESUCHT">WG-Gesucht</SelectItem>
+            <SelectItem value="FLATSFORFRIENDZ">Flatsforfriendz</SelectItem>
+          </SelectContent>
+        </Select>
+      </FormField>
+      <FormField label="Status">
+        <Select
+          onValueChange={(value) => onChange({ userStatus: value === "all" ? undefined : (value as UserStatus) })}
+          value={filters.userStatus ?? "all"}
         >
-          <SelectList.Option label="All statuses" value="" />
-          <SelectList.Option label="New" value="NEW" />
-          <SelectList.Option label="Reviewed" value="REVIEWED" />
-          <SelectList.Option label="Contacted" value="CONTACTED" />
-          <SelectList.Option label="Rejected" value="REJECTED" />
-          <SelectList.Option label="Blacklisted" value="BLACKLISTED" />
-        </SelectList>
-
-        <SelectList
-          id="eligibility"
-          label="Eligibility"
-          size="lg"
-          value={filters.eligibilityState ?? ""}
-          onChange={({ value }) =>
-            onChange({ eligibilityState: (value || undefined) as EligibilityState | undefined })
-          }
+          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="NEW">New</SelectItem>
+            <SelectItem value="REVIEWED">Reviewed</SelectItem>
+            <SelectItem value="CONTACTED">Contacted</SelectItem>
+            <SelectItem value="REJECTED">Rejected</SelectItem>
+            <SelectItem value="BLACKLISTED">Blacklisted</SelectItem>
+          </SelectContent>
+        </Select>
+      </FormField>
+      <FormField label="Eligibility">
+        <Select
+          onValueChange={(value) => onChange({ eligibilityState: value === "all" ? undefined : (value as EligibilityState) })}
+          value={filters.eligibilityState ?? "all"}
         >
-          <SelectList.Option label="All eligibility" value="" />
-          <SelectList.Option label="Match" value="MATCH" />
-          <SelectList.Option label="Unsure" value="UNSURE" />
-          <SelectList.Option label="Reject" value="REJECT" />
-        </SelectList>
-
-        <TextField
-          id="district"
-          label="District"
-          placeholder="Mitte, Kreuzberg..."
-          size="lg"
+          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All eligibility</SelectItem>
+            <SelectItem value="MATCH">Match</SelectItem>
+            <SelectItem value="UNSURE">Unsure</SelectItem>
+            <SelectItem value="REJECT">Reject</SelectItem>
+          </SelectContent>
+        </Select>
+      </FormField>
+      <FormField htmlFor="toolbar-district" label="District">
+        <Input
+          id="toolbar-district"
+          onChange={(event) => onChange({ district: event.target.value || undefined })}
+          placeholder="Mitte"
           value={filters.district ?? ""}
-          onChange={({ value }) => onChange({ district: value || undefined })}
         />
-
-        <NumberField
-          id="max-rent"
-          label="Max rent"
+      </FormField>
+      <FormField htmlFor="toolbar-max-rent" label="Max rent">
+        <Input
+          id="toolbar-max-rent"
+          min={0}
+          onChange={(event) => onChange({ maxRentWarm: event.target.value ? Number(event.target.value) : undefined })}
           placeholder="1800"
-          min={0}
-          size="lg"
-          value={filters.maxRentWarm}
-          onChange={({ value }) => onChange({ maxRentWarm: value })}
+          type="number"
+          value={filters.maxRentWarm ?? ""}
         />
-
-        <NumberField
-          id="min-size"
-          label="Min size"
+      </FormField>
+      <FormField htmlFor="toolbar-min-size" label="Min size">
+        <Input
+          id="toolbar-min-size"
+          min={0}
+          onChange={(event) => onChange({ minSizeSqm: event.target.value ? Number(event.target.value) : undefined })}
           placeholder="50"
-          min={0}
-          size="lg"
-          value={filters.minSizeSqm}
-          onChange={({ value }) => onChange({ minSizeSqm: value })}
+          type="number"
+          value={filters.minSizeSqm ?? ""}
         />
-
-        <NumberField
-          id="min-score"
-          label="Min score"
-          placeholder="70"
-          min={0}
+      </FormField>
+      <FormField htmlFor="toolbar-min-score" label="Min score">
+        <Input
+          id="toolbar-min-score"
           max={100}
-          size="lg"
-          value={filters.minScore}
-          onChange={({ value }) => onChange({ minScore: value })}
+          min={0}
+          onChange={(event) => onChange({ minScore: event.target.value ? Number(event.target.value) : undefined })}
+          placeholder="70"
+          type="number"
+          value={filters.minScore ?? ""}
         />
-
-        <div className="listings-toolbar-actions">
-          <Button color="gray" size="lg" text="Reset filters" disabled={!hasActiveFilters} onClick={() => onReset()} />
-        </div>
+      </FormField>
+      <div className="flex items-end">
+        <Button disabled={!hasActiveFilters} onClick={() => onReset()} variant="outline">
+          Reset filters
+        </Button>
       </div>
     </div>
   );

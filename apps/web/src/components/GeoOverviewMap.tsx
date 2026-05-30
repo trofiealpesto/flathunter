@@ -1,9 +1,9 @@
 import { useEffect } from "react";
-import { Badge, Box, Flex, Text } from "gestalt";
 import { CircleMarker, MapContainer, TileLayer, Tooltip as LeafletTooltip, useMap } from "react-leaflet";
 
 import type { DashboardStats, OfficeLocation } from "@flathunter/shared";
 
+import { ToneBadge } from "./ToneBadge";
 import { formatDistance, getEligibilityTone } from "../lib/geo";
 
 type GeoOverviewMapProps = {
@@ -67,8 +67,8 @@ export function GeoOverviewMap({
       : berlinCenter;
 
   return (
-    <div className="geo-map">
-      <MapContainer center={center} className="geo-map__canvas" scrollWheelZoom={false} zoom={11}>
+    <div className="relative h-[420px] overflow-hidden rounded-lg border bg-muted">
+      <MapContainer center={center} className="h-full w-full" scrollWheelZoom={false} zoom={11}>
         <MapSizeSync />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -82,17 +82,15 @@ export function GeoOverviewMap({
             <CircleMarker
               center={[district.latitude, district.longitude]}
               color={isActive ? "#111111" : "#5f5f5f"}
-              eventHandlers={{
-                click: () => onDistrictSelect(district.district)
-              }}
-              fillColor={isActive ? "#111111" : "#e60023"}
-              fillOpacity={isActive ? 0.88 : 0.72}
+              eventHandlers={{ click: () => onDistrictSelect(district.district) }}
+              fillColor={isActive ? "#111111" : "#262626"}
+              fillOpacity={isActive ? 0.88 : 0.64}
               key={district.district}
               radius={markerRadius(district.count)}
               weight={isActive ? 2.5 : 1.5}
             >
               <LeafletTooltip direction="top" offset={[0, -8]} opacity={1}>
-                <div className="geo-map__tooltip">
+                <div className="grid gap-0.5 text-xs">
                   <strong>{district.district}</strong>
                   <span>{district.count} listings</span>
                   <span>{district.averageWarmRent ? `${Math.round(district.averageWarmRent)} EUR avg` : "Rent n/a"}</span>
@@ -127,7 +125,7 @@ export function GeoOverviewMap({
                     weight={isSelected || isHovered ? 2 : 1}
                   >
                     <LeafletTooltip direction="top" offset={[0, -8]} opacity={1}>
-                      <div className="geo-map__tooltip">
+                      <div className="grid gap-0.5 text-xs">
                         <strong>{point.title}</strong>
                         <span>
                           {point.portal} · {point.district ?? "District n/a"}
@@ -145,13 +143,13 @@ export function GeoOverviewMap({
           <CircleMarker
             center={[officeLocation.latitude, officeLocation.longitude]}
             color="#111111"
-            fillColor="#1f8f4e"
+            fillColor="#059669"
             fillOpacity={1}
             radius={9}
             weight={2}
           >
             <LeafletTooltip direction="top" offset={[0, -8]} opacity={1}>
-              <div className="geo-map__tooltip">
+              <div className="grid gap-0.5 text-xs">
                 <strong>{officeLocation.label}</strong>
                 <span>{officeLocation.address}</span>
               </div>
@@ -160,20 +158,15 @@ export function GeoOverviewMap({
         ) : null}
       </MapContainer>
 
-      <div className="geo-map__overlay">
-        <Flex alignItems="center" gap={2} wrap>
-          <Badge text="District-first map" type="info" />
-          {officeLocation ? <Badge text={`Office: ${officeLocation.label}`} type="success" /> : null}
-          {activeDistrict ? <Badge text={`District ${activeDistrict}`} type="warning" /> : null}
-          {showListingPoints ? <Badge text={`${listingPoints.length} linked points`} type="neutral" /> : null}
-        </Flex>
-
+      <div className="absolute left-3 right-3 top-3 flex flex-wrap items-center gap-2 rounded-lg border bg-background/90 p-2 shadow-sm backdrop-blur">
+        <ToneBadge tone="info">District-first map</ToneBadge>
+        {officeLocation ? <ToneBadge tone="success">Office: {officeLocation.label}</ToneBadge> : null}
+        {activeDistrict ? <ToneBadge tone="warning">District {activeDistrict}</ToneBadge> : null}
+        {showListingPoints ? <ToneBadge>{listingPoints.length} linked points</ToneBadge> : null}
         {!officeLocation ? (
-          <Box marginTop={2}>
-            <Text color="subtle" size="100">
-              Add an office location in Settings to unlock distance bands and per-listing travel context.
-            </Text>
-          </Box>
+          <span className="basis-full text-xs text-muted-foreground">
+            Add an office location in Settings to unlock distance bands and per-listing travel context.
+          </span>
         ) : null}
       </div>
     </div>

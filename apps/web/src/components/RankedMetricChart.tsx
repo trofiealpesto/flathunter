@@ -1,4 +1,6 @@
-import { Box, Text } from "gestalt";
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
+
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
 type RankedMetricChartProps = {
   items: Array<{
@@ -10,43 +12,54 @@ type RankedMetricChartProps = {
   emptyLabel?: string;
 };
 
-function maxValue(items: RankedMetricChartProps["items"]) {
-  return Math.max(...items.map((item) => item.value), 0);
-}
+const chartConfig = {
+  value: {
+    label: "Listings",
+    color: "var(--primary)"
+  }
+} satisfies ChartConfig;
+
+const toneColor = {
+  brand: "var(--primary)",
+  error: "var(--destructive)",
+  neutral: "var(--muted-foreground)",
+  success: "oklch(0.627 0.194 149.214)",
+  warning: "oklch(0.769 0.188 70.08)"
+};
 
 export function RankedMetricChart({
   items,
   emptyLabel = "No rows available for the current selection."
 }: RankedMetricChartProps) {
   if (items.length === 0) {
-    return (
-      <Box paddingY={4}>
-        <Text color="subtle">{emptyLabel}</Text>
-      </Box>
-    );
+    return <p className="py-4 text-sm text-muted-foreground">{emptyLabel}</p>;
   }
 
-  const ceiling = Math.max(maxValue(items), 1);
+  const data = items.map((item) => ({
+    ...item,
+    display: item.detail ? `${item.label} · ${item.detail}` : item.label
+  }));
 
   return (
-    <div className="ranked-chart">
-      {items.map((item) => (
-        <div className="ranked-chart__row" key={item.label}>
-          <div className="ranked-chart__meta">
-            <div>
-              <strong>{item.label}</strong>
-              {item.detail ? <span>{item.detail}</span> : null}
-            </div>
-            <b>{item.value}</b>
-          </div>
-          <div className="ranked-chart__track">
-            <div
-              className={`ranked-chart__fill ranked-chart__fill--${item.tone ?? "neutral"}`}
-              style={{ width: `${item.value === 0 ? 0 : Math.max(8, (item.value / ceiling) * 100)}%` }}
-            />
-          </div>
-        </div>
-      ))}
-    </div>
+    <ChartContainer config={chartConfig} className="h-[220px] w-full" initialDimension={{ width: 480, height: 220 }}>
+      <BarChart accessibilityLayer data={data} layout="vertical" margin={{ bottom: 4, left: 8, right: 16, top: 4 }}>
+        <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+        <XAxis dataKey="value" hide type="number" />
+        <YAxis
+          axisLine={false}
+          dataKey="label"
+          tickLine={false}
+          tickMargin={8}
+          type="category"
+          width={112}
+        />
+        <ChartTooltip content={<ChartTooltipContent hideLabel />} cursor={{ fill: "var(--muted)" }} />
+        <Bar dataKey="value" radius={5}>
+          {data.map((item) => (
+            <Cell fill={toneColor[item.tone ?? "neutral"]} key={item.label} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ChartContainer>
   );
 }

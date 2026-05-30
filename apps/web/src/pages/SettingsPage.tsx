@@ -1,11 +1,19 @@
-import { Badge, Box, Button, Checkbox, NumberField, Spinner, TableOfContents, Text, TextArea, TextField } from "gestalt";
 import { useEffect, useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import type { AppSettings, GeoSearchResult } from "@flathunter/shared";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+
+import { FormField } from "../components/FormField";
 import { SectionHeader } from "../components/SectionHeader";
 import { SurfaceCard } from "../components/SurfaceCard";
+import { ToneBadge } from "../components/ToneBadge";
 
 type SettingsPageProps = {
   settings: AppSettings | null;
@@ -58,8 +66,8 @@ export function SettingsPage({
 
   if (loading && !draft) {
     return (
-      <div className="page-loading">
-        <Spinner accessibilityLabel="Loading settings" show />
+      <div className="grid min-h-96 place-items-center">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="Loading settings" />
       </div>
     );
   }
@@ -67,20 +75,19 @@ export function SettingsPage({
   if (!draft) {
     return (
       <SurfaceCard subtitle="Settings could not be loaded." title="Settings unavailable">
-        <Button color="gray" text="Retry" onClick={() => onRetry()} />
+        <Button onClick={() => onRetry()} variant="outline">
+          Retry
+        </Button>
       </SurfaceCard>
     );
   }
 
   return (
-    <div className="page page--settings">
+    <div className="flex flex-col gap-4">
       <SectionHeader
         actions={
           <Button
-            color="dark"
             disabled={saving}
-            size="lg"
-            text={saving ? "Saving..." : "Save settings"}
             onClick={async () => {
               setSaving(true);
 
@@ -90,216 +97,165 @@ export function SettingsPage({
                 setSaving(false);
               }
             }}
-          />
+          >
+            {saving ? <Loader2 className="animate-spin" /> : null}
+            {saving ? "Saving..." : "Save settings"}
+          </Button>
         }
-        subtitle="Profile, search heuristics, office location, scoring and runtime controls. Office location powers geographic distance on listings and dashboard charts."
+        subtitle="Profile, search heuristics, office location, scoring and runtime controls."
         title="Settings"
       />
 
-      <div className="settings-layout">
-        <div className="settings-sections">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_240px]">
+        <div className="grid gap-4">
           <section id="profile">
             <SurfaceCard subtitle="Contact and bio used for downstream outreach flows." title="Profile">
-              <div className="form-grid">
-                <TextField
-                  id="profile-full-name"
-                  label="Full name"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            profile: {
-                              ...current.profile,
-                              fullName: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  value={draft.profile.fullName}
-                />
-                <TextField
-                  id="profile-email"
-                  label="Email"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            profile: {
-                              ...current.profile,
-                              email: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  type="email"
-                  value={draft.profile.email}
-                />
-                <TextField
-                  id="profile-phone"
-                  label="Phone"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            profile: {
-                              ...current.profile,
-                              phone: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  value={draft.profile.phone}
-                />
-                <TextArea
-                  id="profile-bio"
-                  label="Short bio"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            profile: {
-                              ...current.profile,
-                              shortBio: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  rows={4}
-                  value={draft.profile.shortBio}
-                />
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField htmlFor="profile-full-name" label="Full name">
+                  <Input
+                    id="profile-full-name"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current ? { ...current, profile: { ...current.profile, fullName: event.target.value } } : current
+                      )
+                    }
+                    value={draft.profile.fullName}
+                  />
+                </FormField>
+                <FormField htmlFor="profile-email" label="Email">
+                  <Input
+                    id="profile-email"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current ? { ...current, profile: { ...current.profile, email: event.target.value } } : current
+                      )
+                    }
+                    type="email"
+                    value={draft.profile.email}
+                  />
+                </FormField>
+                <FormField htmlFor="profile-phone" label="Phone">
+                  <Input
+                    id="profile-phone"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current ? { ...current, profile: { ...current.profile, phone: event.target.value } } : current
+                      )
+                    }
+                    value={draft.profile.phone}
+                  />
+                </FormField>
+                <FormField className="md:col-span-2" htmlFor="profile-bio" label="Short bio">
+                  <Textarea
+                    id="profile-bio"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current ? { ...current, profile: { ...current.profile, shortBio: event.target.value } } : current
+                      )
+                    }
+                    rows={4}
+                    value={draft.profile.shortBio}
+                  />
+                </FormField>
               </div>
             </SurfaceCard>
           </section>
 
           <section id="search">
             <SurfaceCard subtitle="Search heuristics shared with the worker." title="Search preferences">
-              <div className="form-grid">
-                <TextField
-                  id="search-city"
-                  label="City"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            search: {
-                              ...current.search,
-                              city: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  value={draft.search.city}
-                />
-                <TextArea
-                  id="search-districts"
-                  helperText="One district per line or comma separated."
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField htmlFor="search-city" label="City">
+                  <Input
+                    id="search-city"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current ? { ...current, search: { ...current.search, city: event.target.value } } : current
+                      )
+                    }
+                    value={draft.search.city}
+                  />
+                </FormField>
+                <FormField
+                  className="md:col-span-2"
+                  description="One district per line or comma separated."
+                  htmlFor="search-districts"
                   label="Preferred districts"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            search: {
-                              ...current.search,
-                              districts: parseMultiline(value)
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  rows={5}
-                  value={toMultiline(draft.search.districts)}
-                />
+                >
+                  <Textarea
+                    id="search-districts"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current ? { ...current, search: { ...current.search, districts: parseMultiline(event.target.value) } } : current
+                      )
+                    }
+                    rows={5}
+                    value={toMultiline(draft.search.districts)}
+                  />
+                </FormField>
               </div>
             </SurfaceCard>
           </section>
 
           <section id="office-location">
             <SurfaceCard
-              actions={
-                draft.search.officeLocation ? (
-                  <Badge text={draft.search.officeLocation.label} type="success" />
-                ) : (
-                  <Badge text="Not configured" type="warning" />
-                )
-              }
+              actions={draft.search.officeLocation ? <ToneBadge tone="success">{draft.search.officeLocation.label}</ToneBadge> : <ToneBadge tone="warning">Not configured</ToneBadge>}
               subtitle="Set the office once to expose geographic distance throughout the product."
               title="Office location"
             >
-              <div className="office-location-stack">
-                <div className="office-search-row">
-                  <TextField
-                    id="office-location-query"
-                    label="Office address"
-                    onChange={({ value }) => setOfficeQuery(value)}
-                    onKeyDown={({ event }) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                      }
-                    }}
-                    placeholder="Alexanderplatz 1, Berlin"
-                    size="lg"
-                    value={officeQuery}
-                  />
-                  <Button
-                    color="dark"
-                    disabled={searchingOffice || officeQuery.trim().length < 3}
-                    size="lg"
-                    text={searchingOffice ? "Searching..." : "Find location"}
-                    onClick={async () => {
-                      setSearchingOffice(true);
-                      setOfficeSearchMessage(null);
+              <div className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+                  <FormField htmlFor="office-location-query" label="Office address">
+                    <Input
+                      id="office-location-query"
+                      onChange={(event) => setOfficeQuery(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                        }
+                      }}
+                      placeholder="Alexanderplatz 1, Berlin"
+                      value={officeQuery}
+                    />
+                  </FormField>
+                  <div className="flex items-end">
+                    <Button
+                      disabled={searchingOffice || officeQuery.trim().length < 3}
+                      onClick={async () => {
+                        setSearchingOffice(true);
+                        setOfficeSearchMessage(null);
 
-                      try {
-                        const results = await onSearchOfficeLocation(officeQuery);
-                        setOfficeResults(results);
-                        setOfficeSearchMessage(results.length === 0 ? "No office candidates found." : null);
-                      } catch (error) {
-                        setOfficeSearchMessage(error instanceof Error ? error.message : "Office lookup failed");
-                      } finally {
-                        setSearchingOffice(false);
-                      }
-                    }}
-                  />
+                        try {
+                          const results = await onSearchOfficeLocation(officeQuery);
+                          setOfficeResults(results);
+                          setOfficeSearchMessage(results.length === 0 ? "No office candidates found." : null);
+                        } catch (error) {
+                          setOfficeSearchMessage(error instanceof Error ? error.message : "Office lookup failed");
+                        } finally {
+                          setSearchingOffice(false);
+                        }
+                      }}
+                    >
+                      {searchingOffice ? <Loader2 className="animate-spin" /> : null}
+                      {searchingOffice ? "Searching..." : "Find location"}
+                    </Button>
+                  </div>
                 </div>
 
                 {draft.search.officeLocation ? (
-                  <Box color="lightWash" padding={4} rounding={4}>
-                    <div className="stat-card stat-card--gestalt">
-                      <span>Current office</span>
-                      <strong>{draft.search.officeLocation.label}</strong>
-                      <Text color="subtle" size="100">
-                        {draft.search.officeLocation.address}
-                      </Text>
-                    </div>
-                  </Box>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <span className="text-xs text-muted-foreground">Current office</span>
+                    <strong className="block">{draft.search.officeLocation.label}</strong>
+                    <p className="text-sm text-muted-foreground">{draft.search.officeLocation.address}</p>
+                  </div>
                 ) : null}
 
-                {officeSearchMessage ? (
-                  <Text color="subtle" size="100">
-                    {officeSearchMessage}
-                  </Text>
-                ) : null}
+                {officeSearchMessage ? <p className="text-sm text-muted-foreground">{officeSearchMessage}</p> : null}
 
                 {officeResults.length > 0 ? (
-                  <div className="office-results">
+                  <div className="grid gap-2">
                     {officeResults.map((result) => (
                       <button
-                        className="office-result"
+                        className="rounded-lg border p-3 text-left transition-colors hover:bg-muted"
                         key={`${result.address}-${result.latitude}-${result.longitude}`}
                         onClick={() =>
                           setDraft((current) =>
@@ -319,347 +275,214 @@ export function SettingsPage({
                         }
                         type="button"
                       >
-                        <strong>{result.label}</strong>
-                        <span>{result.address}</span>
-                        <span>{result.district ?? "Berlin"}</span>
+                        <strong className="block">{result.label}</strong>
+                        <span className="block text-sm text-muted-foreground">{result.address}</span>
+                        <span className="block text-xs text-muted-foreground">{result.district ?? "Berlin"}</span>
                       </button>
                     ))}
                   </div>
                 ) : null}
 
-                <div className="office-actions">
-                  <Button
-                    color="gray"
-                    disabled={!draft.search.officeLocation}
-                    size="md"
-                    text="Clear office location"
-                    onClick={() =>
-                      setDraft((current) =>
-                        current
-                          ? {
-                              ...current,
-                              search: {
-                                ...current.search,
-                                officeLocation: null
-                              }
-                            }
-                          : current
-                      )
-                    }
-                  />
-                </div>
+                <Button
+                  disabled={!draft.search.officeLocation}
+                  onClick={() =>
+                    setDraft((current) =>
+                      current ? { ...current, search: { ...current.search, officeLocation: null } } : current
+                    )
+                  }
+                  variant="outline"
+                >
+                  Clear office location
+                </Button>
               </div>
             </SurfaceCard>
           </section>
 
           <section id="scoring">
             <SurfaceCard subtitle="Deterministic score thresholds and bonuses." title="Scoring">
-              <div className="form-grid">
-                <NumberField
-                  id="score-max-rent"
-                  label="Max warm rent"
-                  min={0}
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current && value != null
-                        ? {
-                            ...current,
-                            scoring: {
-                              ...current.scoring,
-                              maxWarmRent: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  value={draft.scoring.maxWarmRent}
-                />
-                <NumberField
-                  id="score-min-size"
-                  label="Minimum size"
-                  min={0}
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current && value != null
-                        ? {
-                            ...current,
-                            scoring: {
-                              ...current.scoring,
-                              minimumSizeSqm: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  value={draft.scoring.minimumSizeSqm}
-                />
-                <NumberField
-                  id="score-min-rooms"
-                  label="Minimum rooms"
-                  min={0}
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current && value != null
-                        ? {
-                            ...current,
-                            scoring: {
-                              ...current.scoring,
-                              minimumRooms: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  step={0.5}
-                  value={draft.scoring.minimumRooms}
-                />
-                <NumberField
-                  id="score-balcony-bonus"
-                  label="Balcony bonus"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current && value != null
-                        ? {
-                            ...current,
-                            scoring: {
-                              ...current.scoring,
-                              balconyBonus: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  value={draft.scoring.balconyBonus}
-                />
-                <NumberField
-                  id="score-elevator-bonus"
-                  label="Elevator bonus"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current && value != null
-                        ? {
-                            ...current,
-                            scoring: {
-                              ...current.scoring,
-                              elevatorBonus: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  value={draft.scoring.elevatorBonus}
-                />
-                <NumberField
-                  id="score-furnished-penalty"
-                  label="Furnished penalty"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current && value != null
-                        ? {
-                            ...current,
-                            scoring: {
-                              ...current.scoring,
-                              furnishedPenalty: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  value={draft.scoring.furnishedPenalty}
-                />
+              <div className="grid gap-4 md:grid-cols-3">
+                {[
+                  { id: "score-max-rent", label: "Max warm rent", key: "maxWarmRent", min: 0 },
+                  { id: "score-min-size", label: "Minimum size", key: "minimumSizeSqm", min: 0 },
+                  { id: "score-min-rooms", label: "Minimum rooms", key: "minimumRooms", min: 0, step: 0.5 },
+                  { id: "score-balcony-bonus", label: "Balcony bonus", key: "balconyBonus" },
+                  { id: "score-elevator-bonus", label: "Elevator bonus", key: "elevatorBonus" },
+                  { id: "score-furnished-penalty", label: "Furnished penalty", key: "furnishedPenalty" }
+                ].map((field) => (
+                  <FormField htmlFor={field.id} key={field.id} label={field.label}>
+                    <Input
+                      id={field.id}
+                      min={field.min}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        if (Number.isNaN(value)) {
+                          return;
+                        }
+
+                        setDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                scoring: {
+                                  ...current.scoring,
+                                  [field.key]: value
+                                }
+                              }
+                            : current
+                        );
+                      }}
+                      step={field.step}
+                      type="number"
+                      value={draft.scoring[field.key as keyof AppSettings["scoring"]]}
+                    />
+                  </FormField>
+                ))}
               </div>
             </SurfaceCard>
           </section>
 
           <section id="runtime">
             <SurfaceCard subtitle="Worker and semantic runtime behavior." title="Runtime">
-              <div className="form-grid">
-                <Checkbox
-                  checked={draft.runtime.enableSemanticClassifier}
-                  helperText="Disable to keep deterministic scoring only."
-                  id="runtime-semantic"
-                  label="Enable semantic classifier"
-                  onChange={({ checked }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            runtime: {
-                              ...current.runtime,
-                              enableSemanticClassifier: checked
-                            }
-                          }
-                        : current
-                    )
+              <div className="grid gap-4 md:grid-cols-2">
+                {[
+                  {
+                    key: "enableSemanticClassifier",
+                    label: "Enable semantic classifier",
+                    description: "Disable to keep deterministic scoring only."
+                  },
+                  {
+                    key: "enableLlmEnrichment",
+                    label: "Enable English analyst",
+                    description: "Translate and summarize listings with the English analyst pipeline."
+                  },
+                  {
+                    key: "scrapeWithFixtures",
+                    label: "Use fixtures",
+                    description: "Use only for parser debugging; live scraping is the default local mode."
                   }
-                />
-                <Checkbox
-                  checked={draft.runtime.enableLlmEnrichment}
-                  helperText="Translate and summarize listings with the English analyst pipeline."
-                  id="runtime-llm-enrichment"
-                  label="Enable English analyst"
-                  onChange={({ checked }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            runtime: {
-                              ...current.runtime,
-                              enableLlmEnrichment: checked
-                            }
-                          }
-                        : current
-                    )
-                  }
-                />
-                <Checkbox
-                  checked={draft.runtime.scrapeWithFixtures}
-                  helperText="Use only for parser debugging; live scraping is the default local mode."
-                  id="runtime-fixtures"
-                  label="Use fixtures"
-                  onChange={({ checked }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            runtime: {
-                              ...current.runtime,
-                              scrapeWithFixtures: checked
-                            }
-                          }
-                        : current
-                    )
-                  }
-                />
-                <TextField
-                  helperText="Recommended hot-path classifier default: gemini-2.5-flash-lite. Use a faster, cheaper model here so UNSURE listings can be classified in batch without local model infrastructure."
-                  id="runtime-llm-classifier-model"
+                ].map((item) => (
+                  <div className="flex items-start justify-between gap-4 rounded-lg border p-3" key={item.key}>
+                    <div>
+                      <div className="text-sm font-medium">{item.label}</div>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.description}</p>
+                    </div>
+                    <Switch
+                      checked={Boolean(draft.runtime[item.key as keyof AppSettings["runtime"]])}
+                      onCheckedChange={(checked) =>
+                        setDraft((current) =>
+                          current
+                            ? {
+                                ...current,
+                                runtime: {
+                                  ...current.runtime,
+                                  [item.key]: checked
+                                }
+                              }
+                            : current
+                        )
+                      }
+                    />
+                  </div>
+                ))}
+                <FormField
+                  description="Recommended hot-path classifier default: gemini-2.5-flash-lite."
+                  htmlFor="runtime-llm-classifier-model"
                   label="Classifier model"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            runtime: {
-                              ...current.runtime,
-                              llmClassifierModel: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  value={draft.runtime.llmClassifierModel}
-                />
-                <TextField
-                  helperText="Recommended on-demand English analyst default: gemini-2.5-flash. This single Gemini call handles language detection, translation, summary, fit note, and semantic verdict together."
-                  id="runtime-llm-analyst-model"
+                >
+                  <Input
+                    id="runtime-llm-classifier-model"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current ? { ...current, runtime: { ...current.runtime, llmClassifierModel: event.target.value } } : current
+                      )
+                    }
+                    value={draft.runtime.llmClassifierModel}
+                  />
+                </FormField>
+                <FormField
+                  description="Recommended on-demand English analyst default: gemini-2.5-flash."
+                  htmlFor="runtime-llm-analyst-model"
                   label="English analyst model"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            runtime: {
-                              ...current.runtime,
-                              llmAnalystModel: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  size="lg"
-                  value={draft.runtime.llmAnalystModel}
-                />
+                >
+                  <Input
+                    id="runtime-llm-analyst-model"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current ? { ...current, runtime: { ...current.runtime, llmAnalystModel: event.target.value } } : current
+                      )
+                    }
+                    value={draft.runtime.llmAnalystModel}
+                  />
+                </FormField>
               </div>
             </SurfaceCard>
           </section>
 
           <section id="semantic-rules">
             <SurfaceCard subtitle="Textual constraints passed into semantic classification." title="Semantic rules">
-              <div className="form-grid">
-                <TextArea
-                  id="semantic-must-match"
-                  helperText="One rule per line or comma separated."
-                  label="Must match"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            semanticRules: {
-                              ...current.semanticRules,
-                              mustMatch: parseMultiline(value)
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  rows={5}
-                  value={toMultiline(draft.semanticRules.mustMatch)}
-                />
-                <TextArea
-                  id="semantic-avoid"
-                  helperText="One rule per line or comma separated."
-                  label="Avoid"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            semanticRules: {
-                              ...current.semanticRules,
-                              avoid: parseMultiline(value)
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  rows={5}
-                  value={toMultiline(draft.semanticRules.avoid)}
-                />
-                <TextArea
-                  id="semantic-notes"
-                  label="Classifier notes"
-                  onChange={({ value }) =>
-                    setDraft((current) =>
-                      current
-                        ? {
-                            ...current,
-                            semanticRules: {
-                              ...current.semanticRules,
-                              notes: value
-                            }
-                          }
-                        : current
-                    )
-                  }
-                  rows={6}
-                  value={draft.semanticRules.notes}
-                />
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField description="One rule per line or comma separated." htmlFor="semantic-must-match" label="Must match">
+                  <Textarea
+                    id="semantic-must-match"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current
+                          ? { ...current, semanticRules: { ...current.semanticRules, mustMatch: parseMultiline(event.target.value) } }
+                          : current
+                      )
+                    }
+                    rows={5}
+                    value={toMultiline(draft.semanticRules.mustMatch)}
+                  />
+                </FormField>
+                <FormField description="One rule per line or comma separated." htmlFor="semantic-avoid" label="Avoid">
+                  <Textarea
+                    id="semantic-avoid"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current
+                          ? { ...current, semanticRules: { ...current.semanticRules, avoid: parseMultiline(event.target.value) } }
+                          : current
+                      )
+                    }
+                    rows={5}
+                    value={toMultiline(draft.semanticRules.avoid)}
+                  />
+                </FormField>
+                <FormField className="md:col-span-2" htmlFor="semantic-notes" label="Classifier notes">
+                  <Textarea
+                    id="semantic-notes"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current ? { ...current, semanticRules: { ...current.semanticRules, notes: event.target.value } } : current
+                      )
+                    }
+                    rows={6}
+                    value={draft.semanticRules.notes}
+                  />
+                </FormField>
               </div>
             </SurfaceCard>
           </section>
         </div>
 
-        <aside className="settings-toc">
+        <aside className="hidden xl:block">
           <SurfaceCard subtitle="Jump between configuration groups." title="Sections">
-            <TableOfContents title="Settings outline">
-              {sections.map((section) => (
-                <TableOfContents.Item
-                  active={activeHash === section.id}
-                  href={`#${section.id}`}
-                  key={section.id}
-                  label={section.label}
-                />
-              ))}
-            </TableOfContents>
+            <ScrollArea className="max-h-[calc(100svh-12rem)]">
+              <nav className="grid gap-1">
+                {sections.map((section) => (
+                  <a
+                    className={`rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted ${
+                      activeHash === section.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground"
+                    }`}
+                    href={`#${section.id}`}
+                    key={section.id}
+                  >
+                    {section.label}
+                  </a>
+                ))}
+              </nav>
+            </ScrollArea>
           </SurfaceCard>
         </aside>
       </div>

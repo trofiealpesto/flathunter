@@ -1,38 +1,38 @@
-import { Box, Flex, Heading, Text } from "gestalt";
 import type { PropsWithChildren, ReactNode } from "react";
+
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type SurfaceCardProps = PropsWithChildren<{
   title?: string;
   subtitle?: string;
   actions?: ReactNode;
   className?: string;
+  contentClassName?: string;
 }>;
 
-export function SurfaceCard({ title, subtitle, actions, className, children }: SurfaceCardProps) {
+export function SurfaceCard({ title, subtitle, actions, className, contentClassName, children }: SurfaceCardProps) {
   return (
-    <div className={`surface-card${className ? ` ${className}` : ""}`}>
-      <Box color="default" rounding={6} padding={5}>
-        {title || subtitle || actions ? (
-          <Flex alignItems="start" justifyContent="between" gap={4} wrap>
-            {title || subtitle ? (
-              <div className="panel-header">
-                {title ? (
-                  <Heading size="300" accessibilityLevel={2}>
-                    {title}
-                  </Heading>
-                ) : null}
-                {subtitle ? (
-                  <Text size="100" color="subtle">
-                    {subtitle}
-                  </Text>
-                ) : null}
-              </div>
-            ) : null}
-            {actions ? <div className="panel-header-actions">{actions}</div> : null}
-          </Flex>
-        ) : null}
-        {children}
-      </Box>
-    </div>
+    <Card className={cn("min-w-0", className)}>
+      {title || subtitle || actions ? (
+        <CardHeader>
+          {title || subtitle ? (
+            <div className="grid gap-1">
+              {title ? <CardTitle>{title}</CardTitle> : null}
+              {subtitle ? <CardDescription>{subtitle}</CardDescription> : null}
+            </div>
+          ) : null}
+          {actions ? <CardAction>{actions}</CardAction> : null}
+        </CardHeader>
+      ) : null}
+      <CardContent className={cn("min-w-0", contentClassName)}>{children}</CardContent>
+    </Card>
   );
 }

@@ -1,6 +1,11 @@
-import { Box, Button, Heading, Text } from "gestalt";
-
 import type { EligibilityState, ListingFilters, Portal, UserStatus } from "@flathunter/shared";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+import { FormField } from "./FormField";
+import { SurfaceCard } from "./SurfaceCard";
 
 type FilterBarProps = {
   filters: ListingFilters;
@@ -11,102 +16,97 @@ type FilterBarProps = {
 
 export function FilterBar({ filters, hasActiveFilters, onChange, onReset }: FilterBarProps) {
   return (
-    <div className="surface-card surface-card--filters">
-      <Box color="default" rounding={6} padding={5}>
-        <div className="panel-header panel-header--split">
-          <div>
-            <Heading size="300" accessibilityLevel={2}>
-              Filters
-            </Heading>
-            <Text size="100" color="subtle">
-              Live query against the normalized listings index.
-            </Text>
-          </div>
-          {hasActiveFilters ? <Button color="gray" size="sm" text="Reset" onClick={() => onReset()} /> : null}
-        </div>
-
-        <div className="panel-scroll">
-          <div className="field-grid field-grid--filters">
-            <label className="field field-span">
-              <span>Search</span>
-              <input value={filters.query ?? ""} onChange={(event) => onChange({ query: event.target.value || undefined })} />
-            </label>
-            <label className="field">
-              <span>Portal</span>
-              <select
-                value={filters.portal ?? ""}
-                onChange={(event) => onChange({ portal: (event.target.value || undefined) as Portal | undefined })}
-              >
-                <option value="">All</option>
-                <option value="IMMOWELT">Immowelt</option>
-                <option value="IMMOSCOUT24">ImmoScout24</option>
-                <option value="KLEINANZEIGEN">Kleinanzeigen</option>
-                <option value="WG_GESUCHT">WG-Gesucht</option>
-                <option value="FLATSFORFRIENDZ">Flatsforfriendz</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Status</span>
-              <select
-                value={filters.userStatus ?? ""}
-                onChange={(event) => onChange({ userStatus: (event.target.value || undefined) as UserStatus | undefined })}
-              >
-                <option value="">All</option>
-                <option value="NEW">New</option>
-                <option value="REVIEWED">Reviewed</option>
-                <option value="CONTACTED">Contacted</option>
-                <option value="REJECTED">Rejected</option>
-                <option value="BLACKLISTED">Blacklisted</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Eligibility</span>
-              <select
-                value={filters.eligibilityState ?? ""}
-                onChange={(event) =>
-                  onChange({ eligibilityState: (event.target.value || undefined) as EligibilityState | undefined })
-                }
-              >
-                <option value="">All</option>
-                <option value="MATCH">Match</option>
-                <option value="UNSURE">Unsure</option>
-                <option value="REJECT">Reject</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Max warm rent</span>
-              <input
-                type="number"
-                value={filters.maxRentWarm ?? ""}
-                onChange={(event) => onChange({ maxRentWarm: event.target.value ? Number(event.target.value) : undefined })}
-              />
-            </label>
-            <label className="field">
-              <span>Min size</span>
-              <input
-                type="number"
-                value={filters.minSizeSqm ?? ""}
-                onChange={(event) => onChange({ minSizeSqm: event.target.value ? Number(event.target.value) : undefined })}
-              />
-            </label>
-            <label className="field">
-              <span>Min score</span>
-              <input
-                type="number"
-                value={filters.minScore ?? ""}
-                onChange={(event) => onChange({ minScore: event.target.value ? Number(event.target.value) : undefined })}
-              />
-            </label>
-            <label className="field field-span">
-              <span>District</span>
-              <input
-                value={filters.district ?? ""}
-                onChange={(event) => onChange({ district: event.target.value || undefined })}
-              />
-            </label>
-          </div>
-        </div>
-      </Box>
-    </div>
+    <SurfaceCard
+      actions={
+        hasActiveFilters ? (
+          <Button onClick={() => onReset()} size="sm" variant="outline">
+            Reset
+          </Button>
+        ) : null
+      }
+      subtitle="Live query against the normalized listings index."
+      title="Filters"
+    >
+      <div className="grid gap-3 md:grid-cols-4">
+        <FormField className="md:col-span-2" htmlFor="filter-search" label="Search">
+          <Input
+            id="filter-search"
+            onChange={(event) => onChange({ query: event.target.value || undefined })}
+            value={filters.query ?? ""}
+          />
+        </FormField>
+        <FormField label="Portal">
+          <Select onValueChange={(value) => onChange({ portal: value === "all" ? undefined : (value as Portal) })} value={filters.portal ?? "all"}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="All portals" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="IMMOWELT">Immowelt</SelectItem>
+              <SelectItem value="IMMOSCOUT24">ImmoScout24</SelectItem>
+              <SelectItem value="KLEINANZEIGEN">Kleinanzeigen</SelectItem>
+              <SelectItem value="WG_GESUCHT">WG-Gesucht</SelectItem>
+              <SelectItem value="FLATSFORFRIENDZ">Flatsforfriendz</SelectItem>
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField label="Status">
+          <Select onValueChange={(value) => onChange({ userStatus: value === "all" ? undefined : (value as UserStatus) })} value={filters.userStatus ?? "all"}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="All statuses" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="NEW">New</SelectItem>
+              <SelectItem value="REVIEWED">Reviewed</SelectItem>
+              <SelectItem value="CONTACTED">Contacted</SelectItem>
+              <SelectItem value="REJECTED">Rejected</SelectItem>
+              <SelectItem value="BLACKLISTED">Blacklisted</SelectItem>
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField label="Eligibility">
+          <Select
+            onValueChange={(value) => onChange({ eligibilityState: value === "all" ? undefined : (value as EligibilityState) })}
+            value={filters.eligibilityState ?? "all"}
+          >
+            <SelectTrigger className="w-full"><SelectValue placeholder="All eligibility" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="MATCH">Match</SelectItem>
+              <SelectItem value="UNSURE">Unsure</SelectItem>
+              <SelectItem value="REJECT">Reject</SelectItem>
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField htmlFor="filter-max-rent" label="Max warm rent">
+          <Input
+            id="filter-max-rent"
+            onChange={(event) => onChange({ maxRentWarm: event.target.value ? Number(event.target.value) : undefined })}
+            type="number"
+            value={filters.maxRentWarm ?? ""}
+          />
+        </FormField>
+        <FormField htmlFor="filter-min-size" label="Min size">
+          <Input
+            id="filter-min-size"
+            onChange={(event) => onChange({ minSizeSqm: event.target.value ? Number(event.target.value) : undefined })}
+            type="number"
+            value={filters.minSizeSqm ?? ""}
+          />
+        </FormField>
+        <FormField htmlFor="filter-min-score" label="Min score">
+          <Input
+            id="filter-min-score"
+            onChange={(event) => onChange({ minScore: event.target.value ? Number(event.target.value) : undefined })}
+            type="number"
+            value={filters.minScore ?? ""}
+          />
+        </FormField>
+        <FormField className="md:col-span-2" htmlFor="filter-district" label="District">
+          <Input
+            id="filter-district"
+            onChange={(event) => onChange({ district: event.target.value || undefined })}
+            value={filters.district ?? ""}
+          />
+        </FormField>
+      </div>
+    </SurfaceCard>
   );
 }

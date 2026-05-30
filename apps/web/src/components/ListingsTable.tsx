@@ -1,7 +1,15 @@
-import { Badge, Box, Button, Heading, NumberField, SearchField, SelectList, Spinner, Text, TextField } from "gestalt";
+import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
+import { Loader2, Search as SearchIcon } from "lucide-react";
 
 import type { EligibilityState, ListingFilters, ListingSummary, Portal, UserStatus } from "@flathunter/shared";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+import { ToneBadge, toneFromState } from "./ToneBadge";
 import { formatDistance } from "../lib/geo";
 
 type ListingsTableProps = {
@@ -28,14 +36,65 @@ function formatListedRent(listing: ListingSummary) {
   return "n/a";
 }
 
-function renderBadge(value: string) {
-  return (
-    <Badge
-      text={value}
-      type={value === "MATCH" ? "success" : value === "REJECT" ? "error" : value === "CONTACTED" ? "info" : "warning"}
-    />
-  );
-}
+const columns: ColumnDef<ListingSummary>[] = [
+  {
+    accessorKey: "title",
+    header: "Title",
+    cell: ({ row }) => (
+      <div className="min-w-64">
+        <div className="line-clamp-2 font-medium">{row.original.title}</div>
+        <div className="text-xs text-muted-foreground">
+          {row.original.sourceMode === "fixture"
+            ? "Fixture capture"
+            : row.original.sourceMode === "live"
+              ? "Live capture"
+              : "Unknown origin"}
+        </div>
+      </div>
+    )
+  },
+  { accessorKey: "portal", header: "Portal" },
+  {
+    accessorKey: "district",
+    header: "District",
+    cell: ({ row }) => row.original.district ?? "Unknown"
+  },
+  {
+    id: "rent",
+    header: "Listed rent",
+    cell: ({ row }) => formatListedRent(row.original)
+  },
+  {
+    accessorKey: "sizeSqm",
+    header: "Size",
+    cell: ({ row }) => (row.original.sizeSqm ? `${row.original.sizeSqm} m²` : "n/a")
+  },
+  {
+    accessorKey: "rooms",
+    header: "Rooms",
+    cell: ({ row }) => row.original.rooms ?? "n/a"
+  },
+  {
+    accessorKey: "score",
+    header: "Score",
+    cell: ({ row }) => row.original.score ?? "n/a"
+  },
+  {
+    accessorKey: "distanceKm",
+    header: "Distance",
+    cell: ({ row }) => formatDistance(row.original.distanceKm)
+  },
+  {
+    accessorKey: "eligibilityState",
+    header: "Eligibility",
+    cell: ({ row }) => <ToneBadge tone={toneFromState(row.original.eligibilityState)}>{row.original.eligibilityState}</ToneBadge>
+  },
+  {
+    accessorKey: "userStatus",
+    header: "Status",
+    cell: ({ row }) => <ToneBadge tone={toneFromState(row.original.userStatus)}>{row.original.userStatus}</ToneBadge>
+  }
+];
 
 export function ListingsTable({
   listings,
@@ -48,224 +107,178 @@ export function ListingsTable({
   onResetFilters,
   onSelect
 }: ListingsTableProps) {
-  return (
-    <div className="surface-card surface-card--fill surface-card--listings">
-      <Box color="default" padding={5} rounding={6}>
-        <div className="panel-header panel-header--split">
-          <div>
-            <Heading size="300" accessibilityLevel={2}>
-              Listings
-            </Heading>
-            <Text size="100" color="subtle">
-              Scroll the queue in place, refine the visible slice by column, then inspect the selected listing below.
-            </Text>
-          </div>
-          <div className="panel-header-actions">
-            <Badge text={`${listings.length} visible`} type="info" />
-            {hasActiveFilters ? (
-              <Button color="gray" size="md" text="Reset filters" onClick={() => onResetFilters()} />
-            ) : null}
-          </div>
-        </div>
+  const table = useReactTable({
+    columns,
+    data: listings,
+    getCoreRowModel: getCoreRowModel()
+  });
 
+  return (
+    <div className="flex min-h-[540px] min-w-0 flex-col rounded-xl border bg-card text-card-foreground">
+      <div className="flex flex-col gap-3 border-b p-4 xl:flex-row xl:items-start xl:justify-between">
+        <div className="space-y-1">
+          <h2 className="font-medium">Listings</h2>
+          <p className="text-sm text-muted-foreground">
+            Scroll the queue in place, refine the visible slice by column, then inspect the selected listing.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ToneBadge tone="info">{listings.length} visible</ToneBadge>
+          {hasActiveFilters ? (
+            <Button onClick={() => onResetFilters()} size="sm" variant="outline">
+              Reset filters
+            </Button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="grid gap-2 border-b p-3 md:grid-cols-5 xl:grid-cols-10">
+        <div className="relative md:col-span-2 xl:col-span-2">
+          <SearchIcon className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            aria-label="Search listing title or description"
+            className="pl-8"
+            onChange={(event) => onChange({ query: event.target.value || undefined })}
+            placeholder="Search"
+            value={filters.query ?? ""}
+          />
+        </div>
+        <Select
+          onValueChange={(value) => onChange({ portal: value === "all" ? undefined : (value as Portal) })}
+          value={filters.portal ?? "all"}
+        >
+          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All portals</SelectItem>
+            <SelectItem value="IMMOWELT">Immowelt</SelectItem>
+            <SelectItem value="IMMOSCOUT24">ImmoScout24</SelectItem>
+            <SelectItem value="KLEINANZEIGEN">Kleinanzeigen</SelectItem>
+            <SelectItem value="WG_GESUCHT">WG-Gesucht</SelectItem>
+            <SelectItem value="FLATSFORFRIENDZ">Flatsforfriendz</SelectItem>
+          </SelectContent>
+        </Select>
+        <Input
+          aria-label="District"
+          onChange={(event) => onChange({ district: event.target.value || undefined })}
+          placeholder="District"
+          value={filters.district ?? ""}
+        />
+        <Input
+          aria-label="Max rent"
+          min={0}
+          onChange={(event) => onChange({ maxRentWarm: event.target.value ? Number(event.target.value) : undefined })}
+          placeholder="Max rent"
+          type="number"
+          value={filters.maxRentWarm ?? ""}
+        />
+        <Input
+          aria-label="Minimum size"
+          min={0}
+          onChange={(event) => onChange({ minSizeSqm: event.target.value ? Number(event.target.value) : undefined })}
+          placeholder="Min size"
+          type="number"
+          value={filters.minSizeSqm ?? ""}
+        />
+        <Input
+          aria-label="Minimum score"
+          max={100}
+          min={0}
+          onChange={(event) => onChange({ minScore: event.target.value ? Number(event.target.value) : undefined })}
+          placeholder="Min score"
+          type="number"
+          value={filters.minScore ?? ""}
+        />
+        <Select
+          onValueChange={(value) => onChange({ eligibilityState: value === "all" ? undefined : (value as EligibilityState) })}
+          value={filters.eligibilityState ?? "all"}
+        >
+          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All eligibility</SelectItem>
+            <SelectItem value="MATCH">Match</SelectItem>
+            <SelectItem value="UNSURE">Unsure</SelectItem>
+            <SelectItem value="REJECT">Reject</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          onValueChange={(value) => onChange({ userStatus: value === "all" ? undefined : (value as UserStatus) })}
+          value={filters.userStatus ?? "all"}
+        >
+          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="NEW">New</SelectItem>
+            <SelectItem value="REVIEWED">Reviewed</SelectItem>
+            <SelectItem value="CONTACTED">Contacted</SelectItem>
+            <SelectItem value="REJECTED">Rejected</SelectItem>
+            <SelectItem value="BLACKLISTED">Blacklisted</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <ScrollArea className="min-h-0 flex-1">
         {loading ? (
-          <div className="centered-block">
-            <Spinner accessibilityLabel="Loading listings" show />
+          <div className="grid min-h-80 place-items-center">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" aria-label="Loading listings" />
           </div>
         ) : error ? (
-          <div className="empty-state">
-            <h3>Listings unavailable</h3>
-            <p>{error}</p>
-            <Button color="gray" size="lg" text="Reset filters" onClick={() => onResetFilters()} />
+          <div className="grid min-h-80 place-items-center p-6 text-center">
+            <div className="max-w-sm space-y-3">
+              <h3 className="font-medium">Listings unavailable</h3>
+              <p className="text-sm text-muted-foreground">{error}</p>
+              <Button onClick={() => onResetFilters()} variant="outline">
+                Reset filters
+              </Button>
+            </div>
           </div>
         ) : listings.length === 0 ? (
-          <div className="empty-state">
-            <h3>{hasActiveFilters ? "No listings match current filters" : "No listings yet"}</h3>
-            <p>
-              {hasActiveFilters
-                ? "Reset the filters or broaden the thresholds to bring the current batch back into view."
-                : "Run the worker to ingest the first batch, then the table will populate with normalized listings."}
-            </p>
-            {hasActiveFilters ? (
-              <Button color="gray" size="lg" text="Reset filters" onClick={() => onResetFilters()} />
-            ) : (
-              <code>make worker</code>
-            )}
+          <div className="grid min-h-80 place-items-center p-6 text-center">
+            <div className="max-w-sm space-y-3">
+              <h3 className="font-medium">{hasActiveFilters ? "No listings match current filters" : "No listings yet"}</h3>
+              <p className="text-sm text-muted-foreground">
+                {hasActiveFilters
+                  ? "Reset the filters or broaden the thresholds to bring the current batch back into view."
+                  : "Run the worker to ingest the first batch, then the table will populate with normalized listings."}
+              </p>
+              {hasActiveFilters ? (
+                <Button onClick={() => onResetFilters()} variant="outline">
+                  Reset filters
+                </Button>
+              ) : (
+                <code className="rounded bg-muted px-2 py-1 text-xs">make worker</code>
+              )}
+            </div>
           </div>
         ) : (
-          <div className="table-wrapper">
-            <table className="listings-table">
-              <thead>
-                <tr className="listings-table__head-row">
-                  <th>Title</th>
-                  <th>Portal</th>
-                  <th>District</th>
-                  <th>Listed rent</th>
-                  <th>Size</th>
-                  <th>Rooms</th>
-                  <th>Score</th>
-                  <th>Distance</th>
-                  <th>Eligibility</th>
-                  <th>Status</th>
-                </tr>
-                <tr className="listings-table__filter-row">
-                  <th>
-                    <SearchField
-                      accessibilityClearButtonLabel="Clear title search"
-                      accessibilityLabel="Search listing title or description"
-                      id="filter-query"
-                      label="Title query"
-                      labelDisplay="hidden"
-                      onChange={({ value }) => onChange({ query: value || undefined })}
-                      onClear={() => onChange({ query: undefined })}
-                      placeholder="Search"
-                      size="md"
-                      value={filters.query ?? ""}
-                    />
-                  </th>
-                  <th>
-                    <SelectList
-                      id="filter-portal"
-                      label="Portal"
-                      labelDisplay="hidden"
-                      onChange={({ value }) => onChange({ portal: (value || undefined) as Portal | undefined })}
-                      size="md"
-                      value={filters.portal ?? ""}
-                    >
-                      <SelectList.Option label="All" value="" />
-                      <SelectList.Option label="Immowelt" value="IMMOWELT" />
-                      <SelectList.Option label="ImmoScout24" value="IMMOSCOUT24" />
-                      <SelectList.Option label="Kleinanzeigen" value="KLEINANZEIGEN" />
-                      <SelectList.Option label="WG-Gesucht" value="WG_GESUCHT" />
-                      <SelectList.Option label="Flatsforfriendz" value="FLATSFORFRIENDZ" />
-                    </SelectList>
-                  </th>
-                  <th>
-                    <TextField
-                      id="filter-district"
-                      label="District"
-                      labelDisplay="hidden"
-                      onChange={({ value }) => onChange({ district: value || undefined })}
-                      placeholder="District"
-                      size="md"
-                      value={filters.district ?? ""}
-                    />
-                  </th>
-                  <th>
-                    <NumberField
-                      id="filter-rent"
-                      label="Max rent"
-                      labelDisplay="hidden"
-                      min={0}
-                      onChange={({ value }) => onChange({ maxRentWarm: value })}
-                      placeholder="Max"
-                      size="md"
-                      value={filters.maxRentWarm}
-                    />
-                  </th>
-                  <th>
-                    <NumberField
-                      id="filter-size"
-                      label="Minimum size"
-                      labelDisplay="hidden"
-                      min={0}
-                      onChange={({ value }) => onChange({ minSizeSqm: value })}
-                      placeholder="Min"
-                      size="md"
-                      value={filters.minSizeSqm}
-                    />
-                  </th>
-                  <th>
-                    <div className="listings-table__filter-placeholder">Any</div>
-                  </th>
-                  <th>
-                    <NumberField
-                      id="filter-score"
-                      label="Minimum score"
-                      labelDisplay="hidden"
-                      max={100}
-                      min={0}
-                      onChange={({ value }) => onChange({ minScore: value })}
-                      placeholder="Min"
-                      size="md"
-                      value={filters.minScore}
-                    />
-                  </th>
-                  <th>
-                    <div className="listings-table__filter-placeholder">Any</div>
-                  </th>
-                  <th>
-                    <SelectList
-                      id="filter-eligibility"
-                      label="Eligibility"
-                      labelDisplay="hidden"
-                      onChange={({ value }) =>
-                        onChange({ eligibilityState: (value || undefined) as EligibilityState | undefined })
-                      }
-                      size="md"
-                      value={filters.eligibilityState ?? ""}
-                    >
-                      <SelectList.Option label="All" value="" />
-                      <SelectList.Option label="Match" value="MATCH" />
-                      <SelectList.Option label="Unsure" value="UNSURE" />
-                      <SelectList.Option label="Reject" value="REJECT" />
-                    </SelectList>
-                  </th>
-                  <th>
-                    <SelectList
-                      id="filter-status"
-                      label="Status"
-                      labelDisplay="hidden"
-                      onChange={({ value }) => onChange({ userStatus: (value || undefined) as UserStatus | undefined })}
-                      size="md"
-                      value={filters.userStatus ?? ""}
-                    >
-                      <SelectList.Option label="All" value="" />
-                      <SelectList.Option label="New" value="NEW" />
-                      <SelectList.Option label="Reviewed" value="REVIEWED" />
-                      <SelectList.Option label="Contacted" value="CONTACTED" />
-                      <SelectList.Option label="Rejected" value="REJECTED" />
-                      <SelectList.Option label="Blacklisted" value="BLACKLISTED" />
-                    </SelectList>
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {listings.map((listing) => (
-                  <tr
-                    className={selectedListingId === listing.id ? "selected" : undefined}
-                    key={listing.id}
-                    onClick={() => onSelect(listing.id)}
-                  >
-                    <td>
-                      <button className="row-select-button" onClick={() => onSelect(listing.id)} type="button">
-                        <strong>{listing.title}</strong>
-                        <span className="row-select-button__meta">
-                          {listing.sourceMode === "fixture"
-                            ? "Fixture capture"
-                            : listing.sourceMode === "live"
-                              ? "Live capture"
-                              : "Unknown origin"}
-                        </span>
-                      </button>
-                    </td>
-                    <td>{listing.portal}</td>
-                    <td>{listing.district ?? "Unknown"}</td>
-                    <td>{formatListedRent(listing)}</td>
-                    <td>{listing.sizeSqm ? `${listing.sizeSqm} m²` : "n/a"}</td>
-                    <td>{listing.rooms ?? "n/a"}</td>
-                    <td>{listing.score ?? "n/a"}</td>
-                    <td>{formatDistance(listing.distanceKm)}</td>
-                    <td>{renderBadge(listing.eligibilityState)}</td>
-                    <td>{renderBadge(listing.userStatus)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader className="sticky top-0 z-10 bg-card">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.map((row) => (
+                <TableRow
+                  className="cursor-pointer"
+                  data-state={selectedListingId === row.original.id ? "selected" : undefined}
+                  key={row.id}
+                  onClick={() => onSelect(row.original.id)}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
-      </Box>
+      </ScrollArea>
     </div>
   );
 }

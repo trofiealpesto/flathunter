@@ -1,8 +1,11 @@
-import { Button, Spinner, Tabs } from "gestalt";
 import { startTransition, useDeferredValue, useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { ListingDetail as ListingDetailType, ListingSummary, OfficeLocation, UserStatus } from "@flathunter/shared";
+
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { ListingDetail } from "../components/ListingDetail";
 import { ListingsTable } from "../components/ListingsTable";
@@ -157,21 +160,15 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
   const visibleContacted = listings.filter((listing) => listing.userStatus === "CONTACTED").length;
 
   const handleFilterChange = (patch: Parameters<typeof mergeFilterSearchParams>[1]) => {
-    setSearchParams(mergeFilterSearchParams(searchParams, patch), {
-      replace: true
-    });
+    setSearchParams(mergeFilterSearchParams(searchParams, patch), { replace: true });
   };
 
   const handleResetFilters = () => {
-    setSearchParams(resetFilterSearchParams(searchParams), {
-      replace: true
-    });
+    setSearchParams(resetFilterSearchParams(searchParams), { replace: true });
   };
 
   const handleTabChange = (tab: ListingViewTab) => {
-    setSearchParams(applyListingViewTab(searchParams, tab), {
-      replace: true
-    });
+    setSearchParams(applyListingViewTab(searchParams, tab), { replace: true });
   };
 
   const handleStatusChange = async (status: UserStatus) => {
@@ -190,9 +187,7 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
 
     const nextSearchParams = new URLSearchParams(searchParams);
     nextSearchParams.set("selectedId", String(id));
-    setSearchParams(nextSearchParams, {
-      replace: true
-    });
+    setSearchParams(nextSearchParams, { replace: true });
   };
 
   const handleRefreshLlmAnalysis = async (id: number) => {
@@ -213,31 +208,28 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
   };
 
   return (
-    <div className="page page--listings">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <SectionHeader
         actions={
-          <div className="page-section-header__cluster page-section-header__cluster--listings">
-            <Tabs
-              activeTabIndex={listingTabs.findIndex((tab) => tab.value === getListingViewTab(filters))}
-              bgColor="transparent"
-              onChange={({ activeTabIndex, dangerouslyDisableOnNavigation }) => {
-                dangerouslyDisableOnNavigation();
-                handleTabChange(listingTabs[activeTabIndex]?.value ?? "all");
-              }}
-              tabs={listingTabs.map((tab) => ({
-                href: `/listings?${applyListingViewTab(searchParams, tab.value).toString()}`,
-                text: tab.label
-              }))}
-            />
-            <div className="page-header-metrics">
+          <div className="flex flex-wrap items-center gap-3">
+            <Tabs onValueChange={(value) => handleTabChange(value as ListingViewTab)} value={getListingViewTab(filters)}>
+              <TabsList>
+                {listingTabs.map((tab) => (
+                  <TabsTrigger key={tab.value} value={tab.value}>
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <div className="flex flex-wrap items-center gap-2">
               {[
                 { label: "Visible", value: listings.length },
                 { label: "Match", value: visibleMatches },
                 { label: "Contacted", value: visibleContacted }
               ].map((item) => (
-                <div className="page-header-metric" key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
+                <div className="rounded-lg border bg-card px-3 py-2" key={item.label}>
+                  <span className="block text-xs text-muted-foreground">{item.label}</span>
+                  <strong className="text-sm">{item.value}</strong>
                 </div>
               ))}
             </div>
@@ -247,7 +239,7 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
         title="Listings"
       />
 
-      <div className="listings-workspace">
+      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1.08fr)_minmax(420px,0.92fr)]">
         <ListingsTable
           error={listingsError}
           filters={filters}
@@ -260,16 +252,17 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
           selectedListingId={selectedListingId}
         />
 
-        <div className="workspace-panel">
+        <div className="min-w-0">
           {detailError && !selectedListing ? (
             <SurfaceCard
-              className="surface-card--detail surface-card--fill"
               subtitle="The selected listing could not be loaded from the protected API."
               title="Listing detail unavailable"
             >
-              <div className="surface-card__error">
+              <div className="flex flex-col gap-3 text-sm text-muted-foreground">
                 <span>{detailError}</span>
-                <Button color="gray" text="Retry" onClick={() => setDetailVersion((current) => current + 1)} />
+                <Button onClick={() => setDetailVersion((current) => current + 1)} variant="outline">
+                  Retry
+                </Button>
               </div>
             </SurfaceCard>
           ) : (
@@ -288,8 +281,8 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
       </div>
 
       {loadingListings && listings.length === 0 ? (
-        <div className="page-overlay-loading">
-          <Spinner accessibilityLabel="Loading listings workspace" show />
+        <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center bg-background/40 backdrop-blur-sm">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="Loading listings workspace" />
         </div>
       ) : null}
     </div>

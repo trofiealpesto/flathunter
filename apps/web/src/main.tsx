@@ -1,7 +1,8 @@
 import { createRoot } from "react-dom/client";
 
-import "gestalt/dist/gestalt.css";
 import "leaflet/dist/leaflet.css";
+
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 import App from "./App";
 import "./styles.css";
@@ -13,5 +14,7 @@ if (!container) {
 }
 
 createRoot(container).render(
-  <App />
+  <TooltipProvider>
+    <App />
+  </TooltipProvider>
 );

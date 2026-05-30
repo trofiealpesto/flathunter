@@ -1,17 +1,44 @@
 import {
-  Avatar,
-  Button,
-  Dropdown,
-  FixedZIndex,
-  IconButton,
-  SheetMobile,
-  Tooltip
-} from "gestalt";
-import { useEffect, useRef, useState } from "react";
+  Database,
+  Home,
+  LogOut,
+  Search,
+  Settings,
+  UserRound
+} from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { PropsWithChildren } from "react";
+import type { ComponentType, PropsWithChildren } from "react";
 
 import type { SessionResponse } from "@flathunter/shared";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarRail,
+  SidebarSeparator,
+  SidebarTrigger
+} from "@/components/ui/sidebar";
 
 type PageShellProps = PropsWithChildren<{
   user: NonNullable<SessionResponse["user"]>;
@@ -19,271 +46,125 @@ type PageShellProps = PropsWithChildren<{
   onLogout: () => void;
 }>;
 
-const navigationItems = [
-  {
-    href: "/overview",
-    label: "Overview",
-    icon: "home"
-  },
-  {
-    href: "/listings",
-    label: "Listings",
-    icon: "search"
-  },
-  {
-    href: "/sources",
-    label: "Sources",
-    icon: "data-source"
-  },
-  {
-    href: "/settings",
-    label: "Settings",
-    icon: "cog"
-  }
-] as const;
+const navigationItems: Array<{
+  href: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+}> = [
+  { href: "/overview", label: "Overview", icon: Home },
+  { href: "/listings", label: "Listings", icon: Search },
+  { href: "/sources", label: "Sources", icon: Database },
+  { href: "/settings", label: "Settings", icon: Settings }
+];
 
-const userMenuZIndex = new FixedZIndex(1200);
-
-type ShellViewport = "desktop" | "compact" | "mobile";
-
-function getShellViewport(): ShellViewport {
-  if (typeof window === "undefined") {
-    return "desktop";
-  }
-
-  if (window.innerWidth < 1024) {
-    return "mobile";
-  }
-
-  if (window.innerWidth < 1360) {
-    return "compact";
-  }
-
-  return "desktop";
-}
-
-type NavigationProps = {
-  pathname: string;
-  sourceIssueCount: number;
-  onNavigate: (href: string) => void;
-  user: NonNullable<SessionResponse["user"]>;
-  onLogout: () => void;
-};
-
-function CompactRail({ pathname, sourceIssueCount, onNavigate, user, onLogout }: NavigationProps) {
-  const userMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const displayName = user.name || user.login;
-
-  return (
-    <div className="compact-rail">
-      <div className="compact-rail__brand">FH</div>
-      <div className="compact-rail__divider" />
-      <div className="compact-rail__nav">
-        {navigationItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
-          const badgeText =
-            item.href === "/sources" && sourceIssueCount > 0
-              ? String(sourceIssueCount)
-              : null;
-
-          return (
-            <Tooltip key={item.href} inline text={item.label}>
-              <div className="compact-rail__item">
-                <IconButton
-                  accessibilityLabel={item.label}
-                  bgColor={isActive ? "gray" : "lightGray"}
-                  icon={item.icon}
-                  iconColor={isActive ? "light" : "darkGray"}
-                  onClick={() => onNavigate(item.href)}
-                  size="md"
-                />
-                {badgeText ? <span className="compact-rail__badge">{badgeText}</span> : null}
-              </div>
-            </Tooltip>
-          );
-        })}
-      </div>
-
-      <div className="compact-rail__divider" />
-
-      <div className="compact-rail__footer">
-        <Tooltip inline text={`${displayName} (@${user.login})`}>
-          <button
-            className="compact-rail__user-trigger"
-            onClick={() => setIsUserMenuOpen((current) => !current)}
-            ref={userMenuAnchorRef}
-            type="button"
-          >
-            <Avatar accessibilityLabel={displayName} name={displayName} size="md" src={user.avatarUrl ?? undefined} />
-          </button>
-        </Tooltip>
-
-        {isUserMenuOpen && userMenuAnchorRef.current ? (
-          <Dropdown
-            anchor={userMenuAnchorRef.current}
-            id="compact-user-menu"
-            onDismiss={() => setIsUserMenuOpen(false)}
-            zIndex={userMenuZIndex}
-          >
-            <Dropdown.Item
-              onSelect={() => {
-                setIsUserMenuOpen(false);
-                onNavigate("/settings");
-              }}
-              option={{
-                label: "Open settings",
-                value: "settings"
-              }}
-            />
-            <Dropdown.Item
-              onSelect={() => {
-                setIsUserMenuOpen(false);
-                void onLogout();
-              }}
-              option={{
-                label: "Sign out",
-                value: "signout"
-              }}
-            />
-          </Dropdown>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function MobileNavigationSheet({
-  onDismiss,
-  onNavigate,
-  pathname,
-  sourceIssueCount,
-  user,
-  onLogout
-}: NavigationProps & {
-  onDismiss: () => void;
-}) {
-  return (
-    <SheetMobile
-      heading="Workspace"
-      onDismiss={onDismiss}
-      padding="default"
-      size="full"
-      subHeading="Navigate between overview, review queue, sources and runtime settings."
-    >
-      <div className="mobile-nav-sheet">
-        {navigationItems.map((item) => {
-          const isActive = pathname.startsWith(item.href);
-          const counter =
-            item.href === "/sources" && sourceIssueCount > 0
-              ? String(sourceIssueCount)
-              : null;
-
-          return (
-            <Button
-              key={item.href}
-              color={isActive ? "dark" : "gray"}
-              fullWidth
-              iconStart={item.icon}
-              size="lg"
-              text={counter ? `${item.label} (${counter})` : item.label}
-              onClick={() => {
-                onDismiss();
-                onNavigate(item.href);
-              }}
-            />
-          );
-        })}
-
-        <div className="mobile-nav-sheet__footer">
-          <Button color="gray" fullWidth iconStart="cog" size="lg" text="Open settings" onClick={() => onNavigate("/settings")} />
-          <Button color="red" fullWidth size="lg" text={`Sign out @${user.login}`} onClick={() => void onLogout()} />
-        </div>
-      </div>
-    </SheetMobile>
-  );
+function initials(value: string) {
+  return value
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 export function PageShell({ user, sourceIssueCount, onLogout, children }: PageShellProps) {
   const location = useLocation();
   const navigate = useNavigate();
-
-  const [viewport, setViewport] = useState<ShellViewport>(getShellViewport);
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const isMobile = viewport === "mobile";
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const handleResize = () => {
-      const nextViewport = getShellViewport();
-      setViewport(nextViewport);
-
-      if (nextViewport !== "mobile") {
-        setIsMobileNavOpen(false);
-      }
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, []);
-
-  const handleNavigate = (href: string) => {
-    setIsMobileNavOpen(false);
-
-    if (location.pathname === href) {
-      return;
-    }
-
-    navigate(href);
-  };
+  const displayName = user.name || user.login;
 
   return (
-    <div className={`app-frame app-frame--${viewport}`}>
-      {viewport !== "mobile" ? (
-        <aside className="app-rail app-rail--compact">
-          <CompactRail
-            onNavigate={handleNavigate}
-            onLogout={onLogout}
-            pathname={location.pathname}
-            sourceIssueCount={sourceIssueCount}
-            user={user}
-          />
-        </aside>
-      ) : null}
+    <SidebarProvider defaultOpen>
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton className="font-semibold" size="lg">
+                <span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground">FH</span>
+                <span className="truncate">FlatHunter</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
 
-      {isMobile && isMobileNavOpen ? (
-        <MobileNavigationSheet
-          onDismiss={() => setIsMobileNavOpen(false)}
-          onNavigate={handleNavigate}
-          onLogout={onLogout}
-          pathname={location.pathname}
-          sourceIssueCount={sourceIssueCount}
-          user={user}
-        />
-      ) : null}
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navigationItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname.startsWith(item.href);
 
-      <div className={`app-main${isMobile ? "" : " app-main--shell-only"}`}>
-        {isMobile ? (
-          <header className="app-topbar app-topbar--mobile">
-            <IconButton
-              accessibilityLabel="Open workspace navigation"
-              bgColor="lightGray"
-              icon="menu"
-              iconColor="darkGray"
-              onClick={() => setIsMobileNavOpen(true)}
-              size="md"
-            />
-          </header>
-        ) : null}
-        <main className="app-content">{children}</main>
-      </div>
-    </div>
+                  return (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        onClick={() => {
+                          if (location.pathname !== item.href) {
+                            navigate(item.href);
+                          }
+                        }}
+                        tooltip={item.label}
+                      >
+                        <Icon />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                      {item.href === "/sources" && sourceIssueCount > 0 ? (
+                        <SidebarMenuBadge>{sourceIssueCount}</SidebarMenuBadge>
+                      ) : null}
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarSeparator />
+
+        <SidebarFooter>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton size="lg">
+                    <Avatar className="size-8 rounded-lg">
+                      <AvatarImage alt={displayName} src={user.avatarUrl ?? undefined} />
+                      <AvatarFallback className="rounded-lg">{initials(displayName)}</AvatarFallback>
+                    </Avatar>
+                    <span className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-medium">{displayName}</span>
+                      <span className="truncate text-xs text-muted-foreground">@{user.login}</span>
+                    </span>
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56" side="right">
+                  <DropdownMenuLabel>@{user.login}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
+                    <UserRound />
+                    Open settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => void onLogout()}>
+                    <LogOut />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+
+      <SidebarInset className="min-h-svh overflow-hidden bg-background">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+          <SidebarTrigger />
+          <Badge className="md:hidden" variant="outline">
+            FlatHunter
+          </Badge>
+        </header>
+        <main className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4 md:p-5">{children}</main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

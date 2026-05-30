@@ -1,8 +1,10 @@
-import { Badge, Button, Flex, Spinner, Text } from "gestalt";
 import { useEffect, useMemo, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import type { DashboardStats, EligibilityState, OfficeLocation, Portal, PortalSourceSummary } from "@flathunter/shared";
+
+import { Button } from "@/components/ui/button";
 
 import { CompactMetricBreakdown } from "../components/CompactMetricBreakdown";
 import { GeoOverviewMap } from "../components/GeoOverviewMap";
@@ -10,6 +12,7 @@ import { MetricScatter } from "../components/MetricScatter";
 import { RankedMetricChart } from "../components/RankedMetricChart";
 import { SectionHeader } from "../components/SectionHeader";
 import { SurfaceCard } from "../components/SurfaceCard";
+import { ToneBadge } from "../components/ToneBadge";
 import { formatDistance, getEligibilityTone } from "../lib/geo";
 
 type OverviewPageProps = {
@@ -85,14 +88,12 @@ function toggleValue<T>(current: T | null, next: T) {
   return current === next ? null : next;
 }
 
-function buildListingsSearchParams(
-  filters: {
-    portal: Portal | null;
-    eligibilityState: EligibilityState | null;
-    district: string | null;
-    selectedId: number | null;
-  }
-) {
+function buildListingsSearchParams(filters: {
+  portal: Portal | null;
+  eligibilityState: EligibilityState | null;
+  district: string | null;
+  selectedId: number | null;
+}) {
   const searchParams = new URLSearchParams();
 
   if (filters.portal) {
@@ -113,6 +114,15 @@ function buildListingsSearchParams(
 
   const query = searchParams.toString();
   return query ? `/listings?${query}` : "/listings";
+}
+
+function MetricTile({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-lg border bg-card px-3 py-2">
+      <span className="block text-xs text-muted-foreground">{label}</span>
+      <strong className="text-sm">{value}</strong>
+    </div>
+  );
 }
 
 export function OverviewPage({ dashboardStats, officeLocation, sources, loading, onRetry }: OverviewPageProps) {
@@ -158,16 +168,10 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
   const showListingPoints = Boolean(hasActiveOverviewFilters || selectedPointId);
   const filteredAverageRent =
     filteredPoints.filter((point) => point.rent != null).reduce((sum, point) => sum + (point.rent ?? 0), 0) /
-      Math.max(
-        filteredPoints.filter((point) => point.rent != null).length,
-        1
-      ) || null;
+      Math.max(filteredPoints.filter((point) => point.rent != null).length, 1) || null;
   const filteredAverageScore =
     filteredPoints.filter((point) => point.score != null).reduce((sum, point) => sum + (point.score ?? 0), 0) /
-      Math.max(
-        filteredPoints.filter((point) => point.score != null).length,
-        1
-      ) || null;
+      Math.max(filteredPoints.filter((point) => point.score != null).length, 1) || null;
 
   useEffect(() => {
     if (!filteredPoints.some((point) => point.id === selectedPointId)) {
@@ -181,8 +185,8 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
 
   if (loading && !dashboardStats) {
     return (
-      <div className="page-loading">
-        <Spinner accessibilityLabel="Loading overview" show />
+      <div className="grid min-h-96 place-items-center">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="Loading overview" />
       </div>
     );
   }
@@ -190,10 +194,12 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
   if (!dashboardStats) {
     return (
       <SurfaceCard subtitle="Overview data could not be loaded." title="Overview unavailable">
-        <Flex alignItems="center" gap={3}>
-          <Text>Retry the dashboard request to load analytics and sources.</Text>
-          <Button color="gray" text="Retry" onClick={() => onRetry()} />
-        </Flex>
+        <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center">
+          <span>Retry the dashboard request to load analytics and sources.</span>
+          <Button onClick={() => onRetry()} variant="outline">
+            Retry
+          </Button>
+        </div>
       </SurfaceCard>
     );
   }
@@ -210,15 +216,21 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
       .sort()
       .at(-1) ?? null;
 
+  const clearFocus = () => {
+    setActiveEligibility(null);
+    setActivePortal(null);
+    setActiveDistrict(null);
+    setBrushedPointIds(null);
+    setSelectedPointId(null);
+    setHoveredPointId(null);
+  };
+
   return (
-    <div className="page page--overview">
+    <div className="flex flex-col gap-4">
       <SectionHeader
         actions={
-          <div className="page-section-header__cluster">
+          <div className="flex flex-wrap items-center gap-3">
             <Button
-              color="dark"
-              size="lg"
-              text="Open listings"
               onClick={() =>
                 navigate(
                   buildListingsSearchParams({
@@ -229,58 +241,39 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
                   })
                 )
               }
-            />
-            <div className="page-header-metrics">
-              {[
-                { label: "Total listings", value: dashboardStats.totals.listings },
-                { label: "Review queue", value: dashboardStats.totals.reviewQueue },
-                { label: "Match", value: dashboardStats.totals.match },
-                { label: "Contacted", value: dashboardStats.totals.contacted }
-              ].map((item) => (
-                <div className="page-header-metric" key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </div>
-              ))}
+            >
+              Open listings
+            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <MetricTile label="Total listings" value={dashboardStats.totals.listings} />
+              <MetricTile label="Review queue" value={dashboardStats.totals.reviewQueue} />
+              <MetricTile label="Match" value={dashboardStats.totals.match} />
+              <MetricTile label="Contacted" value={dashboardStats.totals.contacted} />
             </div>
           </div>
         }
-        subtitle="Operational view of listing triage, spatial spread, pricing bands and source freshness. Geo analysis remains district-first and now links directly into the current overview slice."
+        subtitle="Operational view of listing triage, spatial spread, pricing bands and source freshness."
         title="Overview"
       />
 
       {hasActiveOverviewFilters || selectedPoint ? (
-        <div className="overview-filter-bar">
-          <Flex alignItems="center" gap={2} wrap>
-            {activeEligibility ? <Badge text={`Eligibility ${activeEligibility}`} type="warning" /> : null}
-            {activePortal ? <Badge text={`Portal ${activePortal}`} type="info" /> : null}
-            {activeDistrict ? <Badge text={`District ${activeDistrict}`} type="success" /> : null}
-            {brushedPointIds?.length ? <Badge text={`Brush ${brushedPointIds.length}`} type="neutral" /> : null}
-            {selectedPoint ? <Badge text={`Selected #${selectedPoint.id}`} type="neutral" /> : null}
-            <Button
-              color="gray"
-              size="sm"
-              text="Clear overview focus"
-              onClick={() => {
-                setActiveEligibility(null);
-                setActivePortal(null);
-                setActiveDistrict(null);
-                setBrushedPointIds(null);
-                setSelectedPointId(null);
-                setHoveredPointId(null);
-              }}
-            />
-          </Flex>
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3">
+          {activeEligibility ? <ToneBadge tone="warning">Eligibility {activeEligibility}</ToneBadge> : null}
+          {activePortal ? <ToneBadge tone="info">Portal {activePortal}</ToneBadge> : null}
+          {activeDistrict ? <ToneBadge tone="success">District {activeDistrict}</ToneBadge> : null}
+          {brushedPointIds?.length ? <ToneBadge>Brush {brushedPointIds.length}</ToneBadge> : null}
+          {selectedPoint ? <ToneBadge>Selected #{selectedPoint.id}</ToneBadge> : null}
+          <Button onClick={clearFocus} size="sm" variant="outline">
+            Clear overview focus
+          </Button>
         </div>
       ) : null}
 
-      <div className="overview-grid overview-grid--packed">
+      <div className="grid gap-4 lg:grid-cols-12">
         <SurfaceCard
-          actions={
-            officeLocation ? <Badge text={`Office: ${officeLocation.label}`} type="success" /> : <Badge text="Office not set" type="warning" />
-          }
-          className="overview-card overview-card--span-8 overview-card--hero"
-          subtitle="District bubbles scale with listing count and expose rent, score and average distance. Click a district to focus the whole overview; linked listing points appear when a slice is active."
+          actions={officeLocation ? <ToneBadge tone="success">Office: {officeLocation.label}</ToneBadge> : <ToneBadge tone="warning">Office not set</ToneBadge>}
+          className="lg:col-span-8"
+          subtitle="District bubbles scale with listing count. Click a district to focus the whole overview."
           title="Berlin geo spread"
         >
           <GeoOverviewMap
@@ -300,55 +293,41 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
           />
         </SurfaceCard>
 
-        <SurfaceCard
-          className="overview-card overview-card--span-4 overview-card--ops"
-          subtitle="Snapshot of source health, office context and current review pressure."
-          title="Operations"
-        >
-          <div className="overview-ops">
-            <div className="overview-ops__datapoints">
-              {[
-                { label: "Healthy", value: healthySources },
-                { label: "Degraded", value: degradedSources },
-                { label: "Failed", value: failedSources },
-                { label: "Latest run", value: formatRelativeTime(latestRunAt) }
-              ].map((item) => (
-                <div className="overview-ops__stat" key={item.label}>
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </div>
-              ))}
+        <SurfaceCard className="lg:col-span-4" subtitle="Source health, office context and review pressure." title="Operations">
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-2">
+              <MetricTile label="Healthy" value={healthySources} />
+              <MetricTile label="Degraded" value={degradedSources} />
+              <MetricTile label="Failed" value={failedSources} />
+              <MetricTile label="Latest run" value={formatRelativeTime(latestRunAt)} />
             </div>
 
-            <div className="overview-ops__sources">
+            <div className="grid gap-2">
               {activeSources.map((source) => (
-                <div className="overview-ops__source" key={source.portal}>
+                <div className="flex items-center justify-between gap-3 rounded-lg border p-3" key={source.portal}>
                   <div>
-                    <strong>{source.portal}</strong>
-                    <p>
+                    <strong className="text-sm">{source.portal}</strong>
+                    <p className="text-xs text-muted-foreground">
                       {source.lastListingsUpserted ?? 0}/{source.lastListingsFound ?? 0} upserted
                     </p>
                   </div>
-                  <Badge
-                    text={getSourceStatusLabel(source)}
-                    type={source.lastStatus === "failed" ? "error" : source.lastStatus === "partial" ? "warning" : "success"}
-                  />
+                  <ToneBadge tone={source.lastStatus === "failed" ? "danger" : source.lastStatus === "partial" ? "warning" : "success"}>
+                    {getSourceStatusLabel(source)}
+                  </ToneBadge>
                 </div>
               ))}
             </div>
 
-            <div className="overview-ops__footer">
+            <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
               <span>{officeLocation ? `Office anchored in ${officeLocation.label}` : "Office location not configured yet"}</span>
-              <Button color="gray" size="md" text="Open sources" onClick={() => navigate("/sources")} />
+              <Button onClick={() => navigate("/sources")} size="sm" variant="outline">
+                Open sources
+              </Button>
             </div>
           </div>
         </SurfaceCard>
 
-        <SurfaceCard
-          className="overview-card overview-card--span-3 overview-card--compact"
-          subtitle="Semantic classifier output split."
-          title="Eligibility mix"
-        >
+        <SurfaceCard className="lg:col-span-3" subtitle="Semantic classifier output split." title="Eligibility mix">
           <CompactMetricBreakdown
             activeLabel={activeEligibility}
             items={dashboardStats.eligibilityBreakdown.map((item) => ({
@@ -364,11 +343,7 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
           />
         </SurfaceCard>
 
-        <SurfaceCard
-          className="overview-card overview-card--span-3 overview-card--compact"
-          subtitle="Where listings are in the manual workflow."
-          title="Status pipeline"
-        >
+        <SurfaceCard className="lg:col-span-3" subtitle="Manual workflow position." title="Status pipeline">
           <CompactMetricBreakdown
             items={dashboardStats.statusBreakdown.map((item) => ({
               label: item.status,
@@ -379,70 +354,33 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
           />
         </SurfaceCard>
 
-        <SurfaceCard
-          className="overview-card overview-card--span-3 overview-card--compact"
-          subtitle="How precise listing geolocation currently is."
-          title="Geo precision"
-        >
+        <SurfaceCard className="lg:col-span-3" subtitle="Current geolocation precision." title="Geo precision">
           <CompactMetricBreakdown
             items={dashboardStats.geoPrecisionBreakdown.map((item) => ({
               label: getGeoPrecisionLabel(item.precision),
               count: item.count,
-              tone:
-                item.precision === "portal_coordinates"
-                  ? "success"
-                  : item.precision === "district_centroid"
-                    ? "warning"
-                    : "neutral"
+              tone: item.precision === "portal_coordinates" ? "success" : item.precision === "district_centroid" ? "warning" : "neutral"
             }))}
             total={dashboardStats.totals.listings}
           />
         </SurfaceCard>
 
-        <SurfaceCard
-          className="overview-card overview-card--span-3 overview-card--compact"
-          subtitle="Classifier cache and analyst freshness across the current dataset."
-          title="LLM health"
-        >
+        <SurfaceCard className="lg:col-span-3" subtitle="Classifier cache and analyst freshness." title="LLM health">
           <CompactMetricBreakdown
             items={[
-              {
-                label: "Classifier ready",
-                count: dashboardStats.llmHealth.classifierReady,
-                tone: "success"
-              },
-              {
-                label: "Analyst missing",
-                count: dashboardStats.llmHealth.analystMissing,
-                tone: "warning"
-              },
-              {
-                label: "Analyst stale",
-                count: dashboardStats.llmHealth.analystStale,
-                tone: "info"
-              },
-              {
-                label: "Analyst error",
-                count: dashboardStats.llmHealth.analystError,
-                tone: "error"
-              }
+              { label: "Classifier ready", count: dashboardStats.llmHealth.classifierReady, tone: "success" },
+              { label: "Analyst missing", count: dashboardStats.llmHealth.analystMissing, tone: "warning" },
+              { label: "Analyst stale", count: dashboardStats.llmHealth.analystStale, tone: "info" },
+              { label: "Analyst error", count: dashboardStats.llmHealth.analystError, tone: "error" }
             ]}
             total={dashboardStats.totals.listings}
           />
         </SurfaceCard>
 
-        <SurfaceCard
-          className="overview-card overview-card--span-4"
-          subtitle="Populated portals only. Click a row to focus the overview."
-          title="Portal mix"
-        >
+        <SurfaceCard className="lg:col-span-4" subtitle="Populated portals only. Click a row to focus the overview." title="Portal mix">
           <CompactMetricBreakdown
             activeLabel={activePortal}
-            items={populatedPortalBreakdown.map((item) => ({
-              label: item.portal,
-              count: item.count,
-              tone: "neutral"
-            }))}
+            items={populatedPortalBreakdown.map((item) => ({ label: item.portal, count: item.count, tone: "neutral" }))}
             onSelect={(label) => {
               setActivePortal((current) => toggleValue(current, label as Portal));
               setBrushedPointIds(null);
@@ -451,48 +389,32 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
           />
         </SurfaceCard>
 
-        <SurfaceCard
-          className="overview-card overview-card--span-4"
-          subtitle="Distribution of the best available rent signal from current listings."
-          title="Rent bands"
-        >
+        <SurfaceCard className="lg:col-span-4" subtitle="Best available rent signal from current listings." title="Rent bands">
           <RankedMetricChart
             items={dashboardStats.rentBands
               .filter((band) => band.count > 0)
-              .map((band) => ({
-                label: band.label,
-                value: band.count,
-                tone: "brand"
-              }))}
+              .map((band) => ({ label: band.label, value: band.count, tone: "brand" }))}
           />
         </SurfaceCard>
 
         <SurfaceCard
-          className="overview-card overview-card--span-4"
-          subtitle={officeLocation ? "Distance buckets from the configured office location." : "Configure the office location to unlock this view."}
+          className="lg:col-span-4"
+          subtitle={officeLocation ? "Distance buckets from configured office location." : "Configure office location to unlock this view."}
           title="Distance bands"
         >
           {officeLocation ? (
-            <RankedMetricChart
-              items={dashboardStats.distanceBands.map((band) => ({
-                label: band.label,
-                value: band.count,
-                tone: "success"
-              }))}
-            />
+            <RankedMetricChart items={dashboardStats.distanceBands.map((band) => ({ label: band.label, value: band.count, tone: "success" }))} />
           ) : (
-            <div className="overview-card__callout">
-              <Text color="subtle">Set an office location to compare homes by geographic distance across the dashboard and listing detail.</Text>
-              <Button color="gray" text="Open office settings" onClick={() => navigate("/settings#office-location")} />
+            <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+              <p className="text-sm text-muted-foreground">Set an office location to compare homes by geographic distance.</p>
+              <Button onClick={() => navigate("/settings#office-location")} variant="outline">
+                Open office settings
+              </Button>
             </div>
           )}
         </SurfaceCard>
 
-        <SurfaceCard
-          className="overview-card overview-card--span-6 overview-card--scatter"
-          subtitle="Rent plotted against office distance for listings with both data points. Drag to brush a slice; click a point to inspect it."
-          title="Distance vs rent"
-        >
+        <SurfaceCard className="lg:col-span-6" subtitle="Rent plotted against office distance." title="Distance vs rent">
           <MetricScatter
             emptyLabel="Add office location and rent data to compare geographic distance against price."
             hoveredId={hoveredPointId}
@@ -505,9 +427,7 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
               tone: getEligibilityTone(point.eligibilityState),
               x: point.distanceKm,
               y: point.rent,
-              tooltip: `${point.title} • ${formatDistance(point.distanceKm)} • ${
-                point.rent ? `${Math.round(point.rent)} EUR` : "Rent n/a"
-              } • ${point.portal}`
+              tooltip: `${point.title} • ${formatDistance(point.distanceKm)} • ${point.rent ? `${Math.round(point.rent)} EUR` : "Rent n/a"} • ${point.portal}`
             }))}
             selectedIds={selectedIds}
             xLabel="Closer to office"
@@ -515,11 +435,7 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
           />
         </SurfaceCard>
 
-        <SurfaceCard
-          className="overview-card overview-card--span-6 overview-card--scatter"
-          subtitle="Each point is a listing with size on X and rent on Y."
-          title="Rent vs size"
-        >
+        <SurfaceCard className="lg:col-span-6" subtitle="Each point is a listing with size on X and rent on Y." title="Rent vs size">
           <MetricScatter
             emptyLabel="Not enough rent and size data to render the comparison."
             hoveredId={hoveredPointId}
@@ -532,9 +448,7 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
               tone: getEligibilityTone(point.eligibilityState),
               x: point.sizeSqm,
               y: point.rent,
-              tooltip: `${point.title} • ${point.sizeSqm ?? "n/a"} m² • ${
-                point.rent ? `${Math.round(point.rent)} EUR` : "Rent n/a"
-              } • ${point.portal}`
+              tooltip: `${point.title} • ${point.sizeSqm ?? "n/a"} m² • ${point.rent ? `${Math.round(point.rent)} EUR` : "Rent n/a"} • ${point.portal}`
             }))}
             selectedIds={selectedIds}
             xLabel="Smaller to larger"
@@ -542,31 +456,27 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
           />
         </SurfaceCard>
 
-        <SurfaceCard
-          className="overview-card overview-card--span-12"
-          subtitle="Current selection summary. Single-point selection opens directly into the listings workspace."
-          title="Inspector"
-        >
+        <SurfaceCard className="lg:col-span-12" subtitle="Current selection summary." title="Inspector">
           {selectedPoint ? (
-            <div className="overview-inspector">
-              <div className="overview-inspector__copy">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0">
                 <strong>{selectedPoint.title}</strong>
-                <p>
+                <p className="mt-1 text-sm text-muted-foreground">
                   {selectedPoint.portal} · {selectedPoint.district ?? "District n/a"} · {formatCurrency(selectedPoint.rent)}
                   {selectedPoint.sizeSqm != null ? ` · ${selectedPoint.sizeSqm} m²` : ""} · Score {selectedPoint.score ?? "n/a"}
                 </p>
-                <p>
+                <p className="mt-1 text-sm text-muted-foreground">
                   {selectedPoint.llmAnalysisStatus === "ready"
                     ? "English analyst cached."
                     : `English analyst ${selectedPoint.llmAnalysisStatus}. Open the listing to refresh it on-demand.`}
                 </p>
               </div>
-              <div className="overview-inspector__meta">
-                <Badge text={selectedPoint.eligibilityState} type={selectedPoint.eligibilityState === "MATCH" ? "success" : selectedPoint.eligibilityState === "REJECT" ? "error" : "warning"} />
-                <Badge text={selectedPoint.userStatus} type="neutral" />
+              <div className="flex flex-wrap items-center gap-2">
+                <ToneBadge tone={selectedPoint.eligibilityState === "MATCH" ? "success" : selectedPoint.eligibilityState === "REJECT" ? "danger" : "warning"}>
+                  {selectedPoint.eligibilityState}
+                </ToneBadge>
+                <ToneBadge>{selectedPoint.userStatus}</ToneBadge>
                 <Button
-                  color="dark"
-                  text="Open in listings"
                   onClick={() =>
                     navigate(
                       buildListingsSearchParams({
@@ -577,26 +487,24 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
                       })
                     )
                   }
-                />
+                >
+                  Open in listings
+                </Button>
               </div>
             </div>
           ) : (
-            <div className="overview-inspector">
-              <div className="overview-inspector__copy">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
                 <strong>{filteredPoints.length} listings in the current overview slice</strong>
-                <p>
+                <p className="mt-1 text-sm text-muted-foreground">
                   Average rent {formatCurrency(Number.isFinite(filteredAverageRent) ? filteredAverageRent : null)} · Average score{" "}
                   {Number.isFinite(filteredAverageScore) ? filteredAverageScore?.toFixed(1) : "n/a"}
                 </p>
-                <p>
-                  Hover or click a point in the linked views to inspect a single listing. Brush one of the scatter plots to narrow the active slice locally.
-                </p>
+                <p className="mt-1 text-sm text-muted-foreground">Hover or click a point in the linked views to inspect a single listing.</p>
               </div>
-              <div className="overview-inspector__meta">
-                <Badge text={`${filteredPoints.length} active`} type="info" />
+              <div className="flex flex-wrap items-center gap-2">
+                <ToneBadge tone="info">{filteredPoints.length} active</ToneBadge>
                 <Button
-                  color="gray"
-                  text="Open current slice"
                   onClick={() =>
                     navigate(
                       buildListingsSearchParams({
@@ -607,7 +515,10 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
                       })
                     )
                   }
-                />
+                  variant="outline"
+                >
+                  Open current slice
+                </Button>
               </div>
             </div>
           )}

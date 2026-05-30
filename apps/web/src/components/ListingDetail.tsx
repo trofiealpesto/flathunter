@@ -1,12 +1,31 @@
-import { useEffect, useState } from "react";
-import { Badge, Button, Flex, IconButton, Text } from "gestalt";
-import { createPortal } from "react-dom";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  ArrowUpRight,
+  CheckCircle2,
+  Loader2,
+  Mail,
+  RefreshCw,
+  XCircle
+} from "lucide-react";
 
-import type { EligibilityState, ListingDetail as ListingDetailRecord, LlmAnalysisStatus, UserStatus } from "@flathunter/shared";
+import type { ListingDetail as ListingDetailRecord, LlmAnalysisStatus, UserStatus } from "@flathunter/shared";
 
+import { Button } from "@/components/ui/button";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious
+} from "@/components/ui/carousel";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
+import { ToneBadge, toneFromState } from "./ToneBadge";
+import { SurfaceCard } from "./SurfaceCard";
 import { formatDistance, getGeoSourceLabel } from "../lib/geo";
 import { getListingPrimaryAction } from "../lib/listingDetail";
-import { SurfaceCard } from "./SurfaceCard";
 
 type ListingDetailProps = {
   listing: ListingDetailRecord | null;
@@ -21,18 +40,6 @@ type ListingDetailProps = {
 
 function openExternal(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
-}
-
-function getEligibilityBadgeType(state: EligibilityState) {
-  if (state === "MATCH") {
-    return "success";
-  }
-
-  if (state === "REJECT") {
-    return "error";
-  }
-
-  return "warning";
 }
 
 function formatListedRent(listing: ListingDetailRecord) {
@@ -105,18 +112,6 @@ function getListingImageUrls(listing: ListingDetailRecord) {
   ]);
 }
 
-function getLlmStatusBadgeType(status: LlmAnalysisStatus) {
-  if (status === "ready") {
-    return "success";
-  }
-
-  if (status === "error") {
-    return "error";
-  }
-
-  return "warning";
-}
-
 function getLlmStatusLabel(status: LlmAnalysisStatus) {
   if (status === "ready") {
     return "Ready";
@@ -131,6 +126,29 @@ function getLlmStatusLabel(status: LlmAnalysisStatus) {
   }
 
   return "Missing";
+}
+
+function DetailIconButton({
+  children,
+  label,
+  onClick,
+  variant = "secondary"
+}: {
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+  variant?: "secondary" | "destructive";
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button aria-label={label} onClick={onClick} size="icon" type="button" variant={variant === "destructive" ? "destructive" : "secondary"}>
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 export function ListingDetail({
@@ -161,8 +179,6 @@ export function ListingDetail({
   }, [listing?.id]);
 
   const visibleImageUrls = imageUrls.filter((imageUrl) => !failedImageUrls.includes(imageUrl));
-  const lightboxImageUrl =
-    lightboxImageIndex != null ? visibleImageUrls[lightboxImageIndex] ?? visibleImageUrls[0] ?? null : null;
 
   function markImageFailed(imageUrl: string) {
     setFailedImageUrls((current) => (current.includes(imageUrl) ? current : [...current, imageUrl]));
@@ -192,45 +208,6 @@ export function ListingDetail({
   }
 
   useEffect(() => {
-    if (lightboxImageIndex == null || visibleImageUrls.length === 0) {
-      return;
-    }
-
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setLightboxImageIndex(null);
-        return;
-      }
-
-      if (visibleImageUrls.length <= 1) {
-        return;
-      }
-
-      if (event.key === "ArrowRight") {
-        setLightboxImageIndex((current) => {
-          const currentIndex = current ?? 0;
-          return (currentIndex + 1) % visibleImageUrls.length;
-        });
-      }
-
-      if (event.key === "ArrowLeft") {
-        setLightboxImageIndex((current) => {
-          const currentIndex = current ?? 0;
-          return (currentIndex - 1 + visibleImageUrls.length) % visibleImageUrls.length;
-        });
-      }
-    }
-
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [lightboxImageIndex, visibleImageUrls]);
-
-  useEffect(() => {
     if (!listing || loading || analystLoading || listing.llmAnalysisStatus === "ready") {
       return;
     }
@@ -244,120 +221,93 @@ export function ListingDetail({
   }, [autoRequestedListingId, analystLoading, listing, loading]);
 
   return (
-    <SurfaceCard className="surface-card--detail surface-card--fill">
+    <SurfaceCard className="min-h-[540px]" contentClassName="min-h-0">
       {loading ? (
-        <div className="centered-block">Loading detail...</div>
+        <div className="grid min-h-96 place-items-center">
+          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        </div>
       ) : listing ? (
-        <div className="detail-stack detail-stack--scrollable">
-          <section className="detail-hero">
+        <ScrollArea className="h-[calc(100svh-12rem)] min-h-[480px] pr-3">
+          <div className="space-y-5">
             {visibleImageUrls.length > 0 ? (
-              <section className="detail-media">
-                <div className="detail-media__strip">
-                  {visibleImageUrls.slice(0, 10).map((imageUrl, index) => (
-                    <button
-                      aria-label={`Open image ${index + 1} of ${visibleImageUrls.length}`}
-                      aria-pressed={index === lightboxImageIndex}
-                      className={`detail-media__thumb${index === lightboxImageIndex ? " is-active" : ""}`}
-                      key={imageUrl}
-                      onClick={() => setLightboxImageIndex(index)}
-                      type="button"
-                    >
-                      <img
-                        alt={`${listing.title} ${index + 1}`}
-                        loading="lazy"
-                        onError={() => markImageFailed(imageUrl)}
-                        src={imageUrl}
-                      />
-                    </button>
-                  ))}
-                </div>
-              </section>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {visibleImageUrls.slice(0, 6).map((imageUrl, index) => (
+                  <button
+                    aria-label={`Open image ${index + 1} of ${visibleImageUrls.length}`}
+                    className="aspect-[4/3] overflow-hidden rounded-lg border bg-muted"
+                    key={imageUrl}
+                    onClick={() => setLightboxImageIndex(index)}
+                    type="button"
+                  >
+                    <img
+                      alt={`${listing.title} ${index + 1}`}
+                      className="h-full w-full object-cover transition-transform hover:scale-105"
+                      loading="lazy"
+                      onError={() => markImageFailed(imageUrl)}
+                      src={imageUrl}
+                    />
+                  </button>
+                ))}
+              </div>
             ) : null}
 
-            <div className="detail-hero__head">
-              <div className="detail-summary">
-                <div className="detail-summary__topline">
-                  <div className="detail-icon-actions">
-                    <IconButton
-                      accessibilityLabel={primaryAction?.label ?? "View original listing"}
-                      bgColor="transparentDarkGray"
-                      icon="arrow-up-right"
-                      iconColor="light"
-                      onClick={() => openExternal(primaryAction?.url ?? listing.url)}
-                      size="md"
-                      tooltip={{ inline: true, text: primaryAction?.label ?? "View original listing" }}
-                    />
-                    <IconButton
-                      accessibilityLabel="Mark reviewed"
-                      bgColor="transparentDarkGray"
-                      icon="check-circle"
-                      iconColor="light"
-                      onClick={() => onStatusChange("REVIEWED")}
-                      size="md"
-                      tooltip={{ inline: true, text: "Mark reviewed" }}
-                    />
-                    <IconButton
-                      accessibilityLabel="Mark contacted"
-                      bgColor="transparentDarkGray"
-                      icon="envelope"
-                      iconColor="light"
-                      onClick={() => onStatusChange("CONTACTED")}
-                      size="md"
-                      tooltip={{ inline: true, text: "Mark contacted" }}
-                    />
-                    <IconButton
-                      accessibilityLabel="Mark rejected"
-                      bgColor="red"
-                      icon="cancel"
-                      iconColor="light"
-                      onClick={() => onStatusChange("REJECTED")}
-                      size="md"
-                      tooltip={{ inline: true, text: "Mark rejected" }}
-                    />
+            <section className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <ToneBadge tone={toneFromState(listing.eligibilityState)}>{listing.eligibilityState}</ToneBadge>
+                    <ToneBadge tone={toneFromState(listing.userStatus)}>{listing.userStatus}</ToneBadge>
+                    <ToneBadge tone="info">{listing.portal}</ToneBadge>
+                    {listing.sourceMode === "fixture" ? <ToneBadge tone="warning">Fixture listing</ToneBadge> : null}
+                    {listing.sourceMode === "live" ? <ToneBadge tone="success">Live capture</ToneBadge> : null}
                   </div>
-
-                  <div className="detail-summary__badges">
-                    <Flex alignItems="center" gap={2} wrap>
-                      <Badge text={listing.eligibilityState} type={getEligibilityBadgeType(listing.eligibilityState)} />
-                      <Badge text={listing.userStatus} type="neutral" />
-                      <Badge text={listing.portal} type="info" />
-                      {listing.sourceMode === "fixture" ? <Badge text="Fixture listing" type="warning" /> : null}
-                      {listing.sourceMode === "live" ? <Badge text="Live capture" type="success" /> : null}
-                    </Flex>
+                  <div>
+                    <h2 className="text-xl font-semibold leading-tight">{listing.title}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {listing.district ?? "Unknown district"} · {formatListedRent(listing)} · Score {listing.score ?? "n/a"}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {listing.addressLine ?? "Precise street address not available in the current scrape."}
+                    </p>
                   </div>
                 </div>
 
-                <div className="detail-summary__copy">
-                  <h3>{listing.title}</h3>
-                  <p>
-                    {listing.district ?? "Unknown district"} · {formatListedRent(listing)} · Score {listing.score ?? "n/a"}
-                  </p>
-                  <p>{listing.addressLine ?? "Precise street address not available in the current scrape."}</p>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <DetailIconButton label={primaryAction?.label ?? "View original listing"} onClick={() => openExternal(primaryAction?.url ?? listing.url)}>
+                    <ArrowUpRight />
+                  </DetailIconButton>
+                  <DetailIconButton label="Mark reviewed" onClick={() => onStatusChange("REVIEWED")}>
+                    <CheckCircle2 />
+                  </DetailIconButton>
+                  <DetailIconButton label="Mark contacted" onClick={() => onStatusChange("CONTACTED")}>
+                    <Mail />
+                  </DetailIconButton>
+                  <DetailIconButton label="Mark rejected" onClick={() => onStatusChange("REJECTED")} variant="destructive">
+                    <XCircle />
+                  </DetailIconButton>
                 </div>
               </div>
 
-              <div className="detail-sidecar">
-                <section className="detail-kpis detail-kpis--hero">
-                  {[
-                    { label: "Rooms", value: listing.rooms ?? "n/a" },
-                    { label: "Listed rent", value: formatListedRent(listing) },
-                    { label: "Size", value: listing.sizeSqm ? `${listing.sizeSqm} m²` : "n/a" },
-                    { label: "Distance", value: formatDistance(listing.distanceKm) },
-                    { label: "Updated", value: formatUpdatedAt(listing.updatedAt) }
-                  ].map((item) => (
-                    <div className="detail-kpi-tile" key={item.label}>
-                      <span>{item.label}</span>
-                      <strong>{item.value}</strong>
-                    </div>
-                  ))}
-                </section>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                {[
+                  { label: "Rooms", value: listing.rooms ?? "n/a" },
+                  { label: "Listed rent", value: formatListedRent(listing) },
+                  { label: "Size", value: listing.sizeSqm ? `${listing.sizeSqm} m²` : "n/a" },
+                  { label: "Distance", value: formatDistance(listing.distanceKm) },
+                  { label: "Updated", value: formatUpdatedAt(listing.updatedAt) }
+                ].map((item) => (
+                  <div className="rounded-lg border bg-muted/30 p-3" key={item.label}>
+                    <span className="text-xs text-muted-foreground">{item.label}</span>
+                    <strong className="block truncate text-sm">{item.value}</strong>
+                  </div>
+                ))}
               </div>
-            </div>
+            </section>
 
-            <div className="detail-hero__panels">
-              <section className="detail-context-card detail-info-card detail-info-card--compact">
-                <div className="detail-analysis-block">
-                  <h4>Geo context</h4>
+            <section className="grid gap-3 xl:grid-cols-2">
+              <div className="rounded-lg border p-4">
+                <h3 className="font-medium">Geo context</h3>
+                <div className="mt-2 space-y-1 text-sm text-muted-foreground">
                   <p>Precision: {getGeoSourceLabel(listing.geoSource)}</p>
                   <p>
                     Coordinates:{" "}
@@ -368,192 +318,151 @@ export function ListingDetail({
                   {hasOfficeLocation ? (
                     <p>Office distance: {formatDistance(listing.distanceKm)}</p>
                   ) : (
-                    <div className="detail-inline-callout detail-inline-callout--compact">
+                    <div className="mt-3 rounded-lg border bg-muted/30 p-3">
                       <p>Add the office location to compare homes by geographic distance.</p>
-                      <Button color="gray" size="sm" text="Open office settings" onClick={onOpenOfficeSettings} />
+                      <Button className="mt-2" onClick={onOpenOfficeSettings} size="sm" variant="outline">
+                        Open office settings
+                      </Button>
                     </div>
                   )}
                 </div>
-              </section>
+              </div>
 
-              <section className="detail-facts-card detail-info-card detail-info-card--compact">
-                <div className="detail-facts-grid">
-                  <div className="detail-analysis-block">
-                    <h4>Signals</h4>
-                    <Flex gap={2} wrap>
-                      {listing.hasBalcony ? <Badge text="Balcony" type="info" /> : null}
-                      {listing.hasElevator ? <Badge text="Elevator" type="info" /> : null}
-                      {listing.isFurnished ? <Badge text="Furnished" type="neutral" /> : null}
-                      {listing.analysisFlags.map((flag) => (
-                        <Badge key={flag} text={flag.replace(/_/g, " ")} type="info" />
-                      ))}
-                      {listing.semanticFlags.map((flag) => (
-                        <Badge key={flag} text={flag} type="neutral" />
-                      ))}
-                      {listing.analysisFlags.length === 0 &&
-                      listing.semanticFlags.length === 0 &&
-                      !listing.hasBalcony &&
-                      !listing.hasElevator &&
-                      !listing.isFurnished ? (
-                        <Text color="subtle" size="100">
-                          No structured or semantic flags returned yet.
-                        </Text>
-                      ) : null}
-                    </Flex>
-                  </div>
-
-                  <div className="detail-analysis-block">
-                    <h4>Deterministic reason</h4>
-                    <p>{listing.eligibilityReason ?? "No semantic classification yet."}</p>
-                  </div>
-
-                  <div className="detail-analysis-block">
-                    <h4>Semantic flags</h4>
-                    <p>{listing.semanticFlags.length > 0 ? listing.semanticFlags.join(", ") : "No semantic flags returned."}</p>
-                  </div>
-                </div>
-              </section>
-
-              <section className="detail-info-card detail-info-card--compact detail-description-card">
-                <div className="detail-analysis-block detail-analysis-block--wide">
-                  <Flex alignItems="center" gap={2} justifyContent="between" wrap>
-                    <h4>English analyst</h4>
-                    <Flex gap={2} wrap>
-                      {!analystLoading ? (
-                        <Badge text={getLlmStatusLabel(listing.llmAnalysisStatus)} type={getLlmStatusBadgeType(listing.llmAnalysisStatus)} />
-                      ) : null}
-                      {analystLoading ? <Badge text="Refreshing" type="info" /> : null}
-                    </Flex>
-                  </Flex>
-
-                  {englishAnalyst ? (
-                    <>
-                      <Flex gap={2} wrap>
-                        <Badge text={`Analyst ${englishAnalyst.model}`} type="info" />
-                        <Badge text={`Source ${englishAnalyst.sourceLanguage}`} type="neutral" />
-                        <Badge text="Integrated translation" type="neutral" />
-                      </Flex>
-                      <p>{englishAnalyst.summary}</p>
-                      <p>{englishAnalyst.fitNote}</p>
-                      {englishAnalyst.translatedTitle && englishAnalyst.translatedTitle !== listing.title ? (
-                        <p>
-                          <strong>Translated title:</strong> {englishAnalyst.translatedTitle}
-                        </p>
-                      ) : null}
-                      <p>
-                        <strong>Translated description:</strong>{" "}
-                        {englishAnalyst.translatedDescription ?? "Translation unavailable; showing source text only in this run."}
-                      </p>
-                      <p>
-                        <strong>Updated:</strong> {formatAnalystTimestamp(englishAnalyst.updatedAt)}
-                      </p>
-                    </>
-                  ) : (
-                    <p>
-                      {analystLoading
-                        ? "Generating English analyst output with Gemini. The first refresh can take a bit longer on verbose listings."
-                        : "No English analyst output is cached for this listing yet."}
-                    </p>
-                  )}
-
-                  {analystError ? <p className="detail-inline-error">{analystError}</p> : null}
-
-                  {listing.llmAnalysisStatus !== "ready" ? (
-                    <Flex gap={2} wrap>
-                      <Button
-                        color="gray"
-                        disabled={analystLoading}
-                        size="sm"
-                        text={englishAnalyst ? "Refresh English analyst" : "Generate English analyst"}
-                        onClick={() => void refreshEnglishAnalyst()}
-                      />
-                    </Flex>
+              <div className="rounded-lg border p-4">
+                <h3 className="font-medium">Signals</h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {listing.hasBalcony ? <ToneBadge tone="info">Balcony</ToneBadge> : null}
+                  {listing.hasElevator ? <ToneBadge tone="info">Elevator</ToneBadge> : null}
+                  {listing.isFurnished ? <ToneBadge>Furnished</ToneBadge> : null}
+                  {listing.analysisFlags.map((flag) => (
+                    <ToneBadge key={flag} tone="info">{flag.replace(/_/g, " ")}</ToneBadge>
+                  ))}
+                  {listing.semanticFlags.map((flag) => (
+                    <ToneBadge key={flag}>{flag}</ToneBadge>
+                  ))}
+                  {listing.analysisFlags.length === 0 &&
+                  listing.semanticFlags.length === 0 &&
+                  !listing.hasBalcony &&
+                  !listing.hasElevator &&
+                  !listing.isFurnished ? (
+                    <p className="text-sm text-muted-foreground">No structured or semantic flags returned yet.</p>
                   ) : null}
                 </div>
-              </section>
+              </div>
+            </section>
 
-              <section className="detail-info-card detail-info-card--compact detail-description-card">
-                <div className="detail-analysis-block detail-analysis-block--wide">
-                  <h4>Description</h4>
-                  <p>{listing.description ?? "No description available."}</p>
+            <section className="grid gap-3 xl:grid-cols-2">
+              <div className="rounded-lg border p-4">
+                <h3 className="font-medium">Deterministic reason</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {listing.eligibilityReason ?? "No semantic classification yet."}
+                </p>
+              </div>
+              <div className="rounded-lg border p-4">
+                <h3 className="font-medium">Semantic flags</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {listing.semanticFlags.length > 0 ? listing.semanticFlags.join(", ") : "No semantic flags returned."}
+                </p>
+              </div>
+            </section>
+
+            <section className="rounded-lg border p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-medium">English analyst</h3>
+                <div className="flex flex-wrap gap-2">
+                  {analystLoading ? (
+                    <ToneBadge tone="info">Refreshing</ToneBadge>
+                  ) : (
+                    <ToneBadge tone={toneFromState(listing.llmAnalysisStatus)}>
+                      {getLlmStatusLabel(listing.llmAnalysisStatus)}
+                    </ToneBadge>
+                  )}
                 </div>
-              </section>
-            </div>
-          </section>
+              </div>
 
-          <section className="detail-compact-shell">
-            {primaryAction?.helperText ? (
-              <Text size="100" color="subtle">
-                {primaryAction.helperText}
-              </Text>
-            ) : null}
-          </section>
-
-          {lightboxImageUrl
-            ? createPortal(
-                <div
-                  aria-label="Listing image viewer"
-                  className="detail-lightbox"
-                  onClick={() => setLightboxImageIndex(null)}
-                  role="dialog"
-                >
-                  <div className="detail-lightbox__backdrop" />
-                  <div className="detail-lightbox__frame" onClick={(event) => event.stopPropagation()}>
-                    <button
-                      aria-label="Close image viewer"
-                      className="detail-lightbox__close"
-                      onClick={() => setLightboxImageIndex(null)}
-                      type="button"
-                    >
-                      ×
-                    </button>
-
-                    {visibleImageUrls.length > 1 ? (
-                      <button
-                        aria-label="Previous image"
-                        className="detail-lightbox__nav detail-lightbox__nav--prev"
-                        onClick={() =>
-                          setLightboxImageIndex((current) => {
-                            const currentIndex = current ?? 0;
-                            return (currentIndex - 1 + visibleImageUrls.length) % visibleImageUrls.length;
-                          })
-                        }
-                        type="button"
-                      >
-                        ‹
-                      </button>
-                    ) : null}
-
-                    <img
-                      alt={listing.title}
-                      className="detail-lightbox__image"
-                      onError={() => markImageFailed(lightboxImageUrl)}
-                      src={lightboxImageUrl}
-                    />
-
-                    {visibleImageUrls.length > 1 ? (
-                      <button
-                        aria-label="Next image"
-                        className="detail-lightbox__nav detail-lightbox__nav--next"
-                        onClick={() =>
-                          setLightboxImageIndex((current) => {
-                            const currentIndex = current ?? 0;
-                            return (currentIndex + 1) % visibleImageUrls.length;
-                          })
-                        }
-                        type="button"
-                      >
-                        ›
-                      </button>
-                    ) : null}
+              {englishAnalyst ? (
+                <div className="mt-3 space-y-3 text-sm leading-relaxed text-muted-foreground">
+                  <div className="flex flex-wrap gap-2">
+                    <ToneBadge tone="info">Analyst {englishAnalyst.model}</ToneBadge>
+                    <ToneBadge>Source {englishAnalyst.sourceLanguage}</ToneBadge>
+                    <ToneBadge>Integrated translation</ToneBadge>
                   </div>
-                </div>,
-                document.body
-              )
-            : null}
-        </div>
+                  <p>{englishAnalyst.summary}</p>
+                  <p>{englishAnalyst.fitNote}</p>
+                  {englishAnalyst.translatedTitle && englishAnalyst.translatedTitle !== listing.title ? (
+                    <p>
+                      <strong className="text-foreground">Translated title:</strong> {englishAnalyst.translatedTitle}
+                    </p>
+                  ) : null}
+                  <p>
+                    <strong className="text-foreground">Translated description:</strong>{" "}
+                    {englishAnalyst.translatedDescription ?? "Translation unavailable; showing source text only in this run."}
+                  </p>
+                  <p>
+                    <strong className="text-foreground">Updated:</strong> {formatAnalystTimestamp(englishAnalyst.updatedAt)}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">
+                  {analystLoading
+                    ? "Generating English analyst output with Gemini. The first refresh can take a bit longer on verbose listings."
+                    : "No English analyst output is cached for this listing yet."}
+                </p>
+              )}
+
+              {analystError ? <p className="mt-3 text-sm text-destructive">{analystError}</p> : null}
+
+              {listing.llmAnalysisStatus !== "ready" ? (
+                <Button className="mt-3" disabled={analystLoading} onClick={() => void refreshEnglishAnalyst()} size="sm" variant="outline">
+                  {analystLoading ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                  {englishAnalyst ? "Refresh English analyst" : "Generate English analyst"}
+                </Button>
+              ) : null}
+            </section>
+
+            <section className="rounded-lg border p-4">
+              <h3 className="font-medium">Description</h3>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                {listing.description ?? "No description available."}
+              </p>
+            </section>
+
+            {primaryAction?.helperText ? <p className="text-xs text-muted-foreground">{primaryAction.helperText}</p> : null}
+          </div>
+
+          <Dialog open={lightboxImageIndex != null} onOpenChange={(open) => (!open ? setLightboxImageIndex(null) : undefined)}>
+            <DialogContent className="max-w-5xl">
+              <DialogHeader>
+                <DialogTitle>{listing.title}</DialogTitle>
+                <DialogDescription>{visibleImageUrls.length} listing images</DialogDescription>
+              </DialogHeader>
+              <Carousel className="mx-auto w-full max-w-4xl" opts={{ startIndex: lightboxImageIndex ?? 0 }}>
+                <CarouselContent>
+                  {visibleImageUrls.map((imageUrl, index) => (
+                    <CarouselItem key={imageUrl}>
+                      <img
+                        alt={`${listing.title} ${index + 1}`}
+                        className="max-h-[70svh] w-full rounded-lg object-contain"
+                        onError={() => markImageFailed(imageUrl)}
+                        src={imageUrl}
+                      />
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                {visibleImageUrls.length > 1 ? (
+                  <>
+                    <CarouselPrevious className="left-2" />
+                    <CarouselNext className="right-2" />
+                  </>
+                ) : null}
+              </Carousel>
+            </DialogContent>
+          </Dialog>
+        </ScrollArea>
       ) : (
-        <div className="centered-block">Select a listing to inspect the normalized payload.</div>
+        <div className="grid min-h-96 place-items-center text-sm text-muted-foreground">
+          Select a listing to inspect the normalized payload.
+        </div>
       )}
     </SurfaceCard>
   );

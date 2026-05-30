@@ -1,4 +1,4 @@
-import { Spinner } from "gestalt";
+import { Loader2 } from "lucide-react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useState } from "react";
 
@@ -14,6 +14,9 @@ import type {
   PortalSourceSummary,
   SessionResponse
 } from "@flathunter/shared";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 
 import { LoginGate } from "./components/LoginGate";
 import { PageShell } from "./components/PageShell";
@@ -57,6 +60,13 @@ function App() {
 
         if (!isCancelled) {
           setSession(nextSession);
+        }
+      } catch {
+        if (!isCancelled) {
+          setSession({
+            authenticated: false,
+            user: null
+          });
         }
       } finally {
         if (!isCancelled) {
@@ -197,8 +207,8 @@ function App() {
 
   if (loadingSession) {
     return (
-      <div className="login-screen">
-        <Spinner accessibilityLabel="Loading session" show />
+      <div className="grid min-h-svh place-items-center bg-background text-foreground">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" aria-label="Loading session" />
       </div>
     );
   }
@@ -220,12 +230,14 @@ function App() {
         onLogout={handleLogout}
       >
         {globalError ? (
-          <div className="app-banner">
-            <div className="app-banner__message">{globalError}</div>
-            <button className="app-banner__action" onClick={handleRefreshGlobals} type="button">
+          <Alert variant="destructive">
+            <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>{globalError}</span>
+              <Button onClick={handleRefreshGlobals} type="button" variant="outline">
               Retry
-            </button>
-          </div>
+              </Button>
+            </AlertDescription>
+          </Alert>
         ) : null}
 
         <Routes>

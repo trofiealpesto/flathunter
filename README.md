@@ -4,7 +4,7 @@ Personal dashboard to discover, score, and review Berlin apartment listings acro
 
 ## Stack
 
-- `apps/web`: React + Vite + Gestalt
+- `apps/web`: React + Vite + shadcn/ui Nova
 - `apps/api`: Fastify + GitHub OAuth + signed cookie sessions
 - `apps/worker`: Playwright + deterministic scoring + Ollama-backed semantic classification
 - `packages/db`: Drizzle schema + repositories + migrations
