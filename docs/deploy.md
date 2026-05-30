@@ -2,132 +2,117 @@
 
 ## Recommended topology
 
-- `Vercel`: serves the static frontend built from `apps/web/dist`.
-- `Vercel /api proxy`: forwards browser requests from `/api/*` to your real backend using `API_ORIGIN`.
-- `API service`: runs `apps/api` on a normal Node container host.
-- `Worker service`: runs `apps/worker` on a Playwright-capable container host.
-- `Postgres`: any managed Postgres reachable through `DATABASE_URL`.
+The default production path is a generic self-hosted Docker Compose stack. It is not tied to Oracle, Vercel, Netlify, or another deploy platform.
 
-This split is intentional:
+- `web-http` or `web-https`: Caddy serving the built frontend from `apps/web`.
+- `/api/*`: proxied by Caddy to the internal API service.
+- `api`: Fastify app from `apps/api`.
+- `worker`: Playwright-capable scraper loop from `apps/worker`.
+- `postgres`: self-hosted Postgres with a persistent Docker volume.
+- `migrate`: one-shot migration service run by the Makefile on deploy.
 
-- the frontend benefits from Vercel CDN and instant previews
-- the API stays same-origin to the browser through the Vercel proxy
-- Playwright-based scraping and auth refresh stay off Vercel Functions, where browser-heavy long-running work is the wrong fit for this repo
+The stack lives in `infra/production/`.
 
-The repo now includes a single-VM Oracle deployment profile in `infra/oracle/`:
+## Configure the server env
 
-- `infra/oracle/docker-compose.yml`: API, worker loop, Postgres, and Caddy reverse proxy
-- `infra/oracle/.env.example`: Oracle VM env template
-- `infra/oracle/Caddyfile`: TLS termination for `api.<your-domain>`
-
-For the full Oracle rollout, see [docs/deploy-oracle.md](./deploy-oracle.md).
-
-## Vercel project
-
-- Root directory: repository root
-- Install command: `pnpm install --frozen-lockfile`
-- Build command: `pnpm --filter @flathunter/web build`
-- Output directory: `apps/web/dist`
-- Config file: `vercel.json`
-
-### Required Vercel environment variables
-
-- `API_ORIGIN=https://<api-service-domain>`
-
-The Vercel proxy function in `api/[[...path]].ts` forwards every browser `/api/*` request to `API_ORIGIN` and preserves cookies on the browser-facing origin.
-
-## API service
-
-Use the existing Dockerfile:
-
-- Root: repository root
-- Dockerfile: `apps/api/Dockerfile`
-
-Required environment variables:
-
-- `NODE_ENV=production`
-- `DATABASE_URL=<managed-postgres-url>`
-- `PORT=4000`
-- `APP_ORIGIN=https://<your-vercel-domain>`
-- `SESSION_SECRET=<long-random-secret>`
-- `PORTAL_SECRETS_KEY=<long-random-secret>`
-- `ADMIN_GITHUB_LOGIN=<github-login>`
-- `GITHUB_CLIENT_ID=<github-oauth-app-id>`
-- `GITHUB_CLIENT_SECRET=<github-oauth-app-secret>`
-- `SCRAPER_PROXY_URL=<optional>`
-
-Notes:
-
-- `APP_ORIGIN` must point to the Vercel frontend domain because OAuth callback and session redirects terminate there.
-- Source auth refresh and browser bootstrap stay on this service, not on Vercel.
-- On remote deployments, set `ENABLE_MANUAL_SOURCE_AUTH_BOOTSTRAP=false`. The local browser bootstrap flow only works when the API process can open a visible browser on your machine.
-
-## Worker service
-
-Use the existing Dockerfile:
-
-- Root: repository root
-- Dockerfile: `apps/worker/Dockerfile`
-
-Required environment variables:
-
-- `NODE_ENV=production`
-- `DATABASE_URL=<managed-postgres-url>`
-- `PORTAL_SECRETS_KEY=<same-value-as-api>`
-- `IMMOWELT_SEARCH_URL=https://www.immowelt.de/liste/berlin/wohnungen/mieten`
-- `IMMOWELT_ENABLE_LIVE_BROWSER=true`
-- `SCRAPER_PROXY_URL=<optional>`
-- `CAPSOLVER_API_KEY=<optional>`
-- `GEMINI_API_KEY=<required for semantic classification and English analyst>`
-- `GEMINI_API_BASE_URL=<optional, defaults to Google Gemini Developer API>`
-
-Run mode:
-
-- continuous loop with `pnpm --filter @flathunter/worker run start:loop`
-- or one-shot cron invoking `pnpm --filter @flathunter/worker run start`
-
-The Oracle compose profile runs the continuous loop from the built artifact: `node apps/worker/dist/dev.js`.
-
-## Postgres
-
-You can use Neon, Railway Postgres, Supabase Postgres, or another standard Postgres provider.
-If you want to keep everything on one Oracle VM, the repo includes a self-hosted Postgres service in `infra/oracle/docker-compose.yml`.
-
-Before first production boot:
+Copy the template on the production server:
 
 ```bash
-pnpm install
-pnpm db:migrate
+cp infra/production/.env.example infra/production/.env
 ```
 
-Run migrations against the production `DATABASE_URL`.
+Set at least:
+
+- `POSTGRES_PASSWORD=<long-random-password>`
+- `DATABASE_URL=postgres://flathunter:<same-password>@postgres:5432/flathunter`
+- `SESSION_SECRET=<long-random-secret>`
+- `PORTAL_SECRETS_KEY=<long-random-secret>`
+- `ADMIN_GITHUB_LOGIN=<your-github-login>`
+- `GITHUB_CLIENT_ID=<github-oauth-client-id>`
+- `GITHUB_CLIENT_SECRET=<github-oauth-client-secret>`
+
+Keep this off on remote servers:
+
+```bash
+ENABLE_MANUAL_SOURCE_AUTH_BOOTSTRAP=false
+```
+
+## Deploy
+
+HTTP on port 80:
+
+```bash
+make prod-deploy PROD_SCHEME=http PROD_HOST=flathunter.example.com PROD_PORT=80
+```
+
+HTTPS on port 443:
+
+```bash
+make prod-deploy PROD_SCHEME=https PROD_HOST=flathunter.example.com PROD_PORT=443
+```
+
+`prod-deploy` does this:
+
+- checks the current branch matches `PROD_BRANCH` (`main` by default)
+- pulls `origin/$(PROD_BRANCH)` with `--ff-only`
+- validates the production compose config
+- rebuilds Docker images for web, API, worker, and migrations
+- starts Postgres
+- runs migrations
+- starts the API, worker, and selected web service
+
+To deploy another branch:
+
+```bash
+make prod-deploy PROD_BRANCH=<branch-name> PROD_HOST=flathunter.example.com
+```
+
+To use an explicit public origin instead of the derived `PROD_SCHEME://PROD_HOST[:PROD_PORT]`:
+
+```bash
+make prod-deploy PROD_APP_ORIGIN=https://flathunter.example.com
+```
+
+## Stop and logs
+
+Stop every production service without deleting volumes:
+
+```bash
+make prod-stop
+```
+
+Tail production logs:
+
+```bash
+make prod-logs
+```
 
 ## GitHub OAuth app
 
-Configure two callback URLs:
+Configure the production callback URL to match the public web origin:
 
-- Local development: `http://localhost:3000/api/auth/github/callback`
-- Production: `https://<your-vercel-domain>/api/auth/github/callback`
+```text
+https://flathunter.example.com/api/auth/github/callback
+```
 
-Only the login configured in `ADMIN_GITHUB_LOGIN` is accepted after OAuth succeeds.
+Use `http://.../api/auth/github/callback` if you deploy with `PROD_SCHEME=http`.
 
-## Minimal rollout order
+## HTTPS notes
 
-1. Create the private Git repository and push this repo.
-2. Provision Postgres and collect `DATABASE_URL`.
-3. Deploy the API container.
-4. Set `API_ORIGIN` in Vercel to the API public URL.
-5. Deploy the Vercel frontend.
-6. Update the GitHub OAuth production callback URL to the Vercel domain.
-7. Deploy the worker container and enable its loop or cron schedule.
+The HTTPS profile uses Caddy automatic certificates. For public Let's Encrypt certificates:
 
-If you are following the Oracle path, step 3-7 are collapsed into the Oracle compose stack plus one `API_ORIGIN` env on Vercel.
+- `PROD_HOST` must be a real DNS name pointing to the server
+- port `443/tcp` must reach the server
+- port `80/tcp` should also reach the server for ACME HTTP validation
 
-## Manual checks
+If TLS is terminated by another reverse proxy or load balancer, deploy this stack with `PROD_SCHEME=http` on an internal port and put that proxy in front of it.
 
-After deployment:
+## Optional Vercel frontend
 
-1. Open the Vercel app and confirm `/api/auth/session` returns `authenticated: false` instead of a proxy error.
-2. Complete GitHub login and verify the session cookie is set on the Vercel domain.
-3. If the API is remote, run manual browser bootstrap locally against the same database. Do not expect `Open browser login` on the Oracle host to open a browser on your laptop.
-4. Trigger one worker run and confirm Immowelt no longer shows a degraded status unless there are real invalid/error detail failures.
+The repo still supports the split Vercel frontend setup:
+
+- frontend build command: `pnpm --filter @flathunter/web build`
+- output directory: `apps/web/dist`
+- required Vercel env var: `API_ORIGIN=https://<api-service-domain>`
+
+That path is optional. The generic `prod-deploy` stack serves the frontend itself.

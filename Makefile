@@ -7,13 +7,21 @@ endif
 
 COMPOSE := docker compose -f infra/docker-compose.yml
 ORACLE_COMPOSE := docker compose -f infra/oracle/docker-compose.yml --env-file infra/oracle/.env
-PROD_COMPOSE := $(ORACLE_COMPOSE)
+PROD_COMPOSE_FILE ?= infra/production/docker-compose.yml
+PROD_ENV_FILE ?= infra/production/.env
 PROD_BRANCH ?= main
+PROD_SCHEME ?= http
+PROD_HOST ?= localhost
+PROD_PORT ?= $(if $(filter https,$(PROD_SCHEME)),443,80)
+PROD_PORT_SUFFIX = $(if $(filter http:80 https:443,$(PROD_SCHEME):$(PROD_PORT)),,:$(PROD_PORT))
+PROD_APP_ORIGIN ?= $(PROD_SCHEME)://$(PROD_HOST)$(PROD_PORT_SUFFIX)
+PROD_COMPOSE = COMPOSE_PROFILES="$(PROD_SCHEME)" APP_ORIGIN="$(PROD_APP_ORIGIN)" WEB_PORT="$(PROD_PORT)" FLATHUNTER_PROD_ENV_FILE="$(abspath $(PROD_ENV_FILE))" docker compose -f $(PROD_COMPOSE_FILE) --env-file $(PROD_ENV_FILE)
+PROD_COMPOSE_ALL = COMPOSE_PROFILES="http,https" APP_ORIGIN="$(PROD_APP_ORIGIN)" WEB_PORT="$(PROD_PORT)" FLATHUNTER_PROD_ENV_FILE="$(abspath $(PROD_ENV_FILE))" docker compose -f $(PROD_COMPOSE_FILE) --env-file $(PROD_ENV_FILE)
 PNPM := pnpm
 PNPM_VERSION := 10.33.0
 NODE22 := ./scripts/with-node22.sh
 
-.PHONY: help check-env oracle-check-env prod-check-branch prod-check-docker check-docker ensure-node ensure-pnpm install infra-up infra-down infra-logs oracle-up oracle-down oracle-logs oracle-config prod-build prod-deploy prod-stop prod-logs prod-config deploy-prod stop-prod migrate dev start worker worker-dev build test typecheck clean
+.PHONY: help check-env oracle-check-env prod-check-env prod-check-branch prod-check-scheme prod-check-docker check-docker ensure-node ensure-pnpm install infra-up infra-down infra-logs oracle-up oracle-down oracle-logs oracle-config prod-build prod-deploy prod-stop prod-logs prod-config deploy-prod stop-prod migrate dev start worker worker-dev build test typecheck clean
 
 help:
 	@echo "FlatHunter Make targets"
@@ -28,9 +36,10 @@ help:
 	@echo "  make oracle-down Stop the Oracle production stack"
 	@echo "  make oracle-logs Tail Oracle production logs"
 	@echo "  make oracle-config Validate the Oracle docker-compose config"
-	@echo "  make prod-deploy Pull, build, migrate, and start the production server stack"
-	@echo "  make prod-stop   Stop the full production server stack"
-	@echo "  make prod-logs   Tail production server logs"
+	@echo "  make prod-deploy Pull, build, migrate, and start the full production stack"
+	@echo "  make prod-stop   Stop the full production stack"
+	@echo "  make prod-logs   Tail production logs"
+	@echo "                  Use PROD_SCHEME=http|https PROD_HOST=... PROD_PORT=..."
 	@echo "  make install     Install workspace dependencies"
 	@echo "  make migrate     Apply database migrations"
 	@echo "  make test        Run the full test suite"
@@ -47,6 +56,9 @@ check-env:
 oracle-check-env:
 	@test -f infra/oracle/.env || (echo "Missing infra/oracle/.env file. Copy infra/oracle/.env.example first." && exit 1)
 
+prod-check-env:
+	@test -f $(PROD_ENV_FILE) || (echo "Missing $(PROD_ENV_FILE) file. Copy infra/production/.env.example first." && exit 1)
+
 prod-check-branch:
 	@branch="$$(git branch --show-current)"; \
 	if [ "$$branch" != "$(PROD_BRANCH)" ]; then \
@@ -54,6 +66,12 @@ prod-check-branch:
 		echo "Switch branches or override with: make prod-deploy PROD_BRANCH=$$branch"; \
 		exit 1; \
 	fi
+
+prod-check-scheme:
+	@case "$(PROD_SCHEME)" in \
+		http|https) ;; \
+		*) echo "PROD_SCHEME must be http or https, got '$(PROD_SCHEME)'."; exit 1 ;; \
+	esac
 
 prod-check-docker:
 	@docker info >/dev/null 2>&1 || (echo "Docker daemon is not running or this user cannot access it." && echo "Start Docker Engine and ensure the current user can run docker." && exit 1)
@@ -122,21 +140,26 @@ oracle-down: oracle-check-env
 oracle-logs: oracle-check-env
 	$(ORACLE_COMPOSE) logs -f
 
-prod-config: oracle-config
+prod-config: prod-check-env prod-check-scheme
+	$(PROD_COMPOSE) config
 
-prod-build: oracle-check-env prod-check-docker
+prod-build: prod-check-env prod-check-scheme prod-check-docker
 	$(PROD_COMPOSE) build --pull
 
-prod-deploy: oracle-check-env prod-check-branch prod-check-docker
+prod-deploy: prod-check-env prod-check-scheme prod-check-branch prod-check-docker
 	git pull --ff-only origin $(PROD_BRANCH)
 	$(PROD_COMPOSE) config >/dev/null
 	$(PROD_COMPOSE) build --pull
-	$(PROD_COMPOSE) up -d --remove-orphans
+	$(PROD_COMPOSE) up -d postgres
+	$(PROD_COMPOSE) run --rm migrate
+	$(PROD_COMPOSE) up -d --remove-orphans api worker web-$(PROD_SCHEME)
+	@echo "FlatHunter production: $(PROD_APP_ORIGIN)"
 
-prod-stop: oracle-check-env
-	$(PROD_COMPOSE) down --remove-orphans
+prod-stop: prod-check-env
+	$(PROD_COMPOSE_ALL) down --remove-orphans
 
-prod-logs: oracle-logs
+prod-logs: prod-check-env
+	$(PROD_COMPOSE_ALL) logs -f
 
 deploy-prod: prod-deploy
 

@@ -1,0 +1,13 @@
+.git
+.DS_Store
+.env
+.env.*
+.pnpm-store
+.vercel
+.netlify
+node_modules
+dist
+coverage
+playwright-report
+test-results
+.vite

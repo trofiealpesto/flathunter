@@ -74,11 +74,21 @@ make infra-down
 Production server shortcuts:
 
 ```bash
+cp infra/production/.env.example infra/production/.env
 make prod-deploy
 make prod-stop
 ```
 
-`prod-deploy` is intended to be run from the cloned repo on the production VM. It pulls the latest `origin/main`, rebuilds the production Docker images, applies migrations through the compose stack, and starts the API, worker, Postgres, and Caddy services. `prod-stop` stops that production stack without deleting persistent volumes.
+`prod-deploy` is intended to be run from the cloned repo on the production server. It pulls the latest `origin/main`, rebuilds the production Docker images, applies migrations, and starts the full stack: frontend, `/api` reverse proxy, API, worker, Postgres, and Caddy.
+
+Choose the public web scheme, host, and port from `make`:
+
+```bash
+make prod-deploy PROD_SCHEME=http PROD_HOST=flathunter.example.com PROD_PORT=80
+make prod-deploy PROD_SCHEME=https PROD_HOST=flathunter.example.com PROD_PORT=443
+```
+
+`prod-stop` stops the full production stack without deleting persistent volumes.
 
 ## GitHub OAuth callback URLs
 
@@ -150,14 +160,13 @@ If the refresh fails:
 ## Deployment
 
 See [docs/deploy.md](docs/deploy.md).
-For the single-VM `Vercel + Oracle` rollout prepared in this repo, use [docs/deploy-oracle.md](docs/deploy-oracle.md).
+For the older split `Vercel + Oracle backend` rollout, use [docs/deploy-oracle.md](docs/deploy-oracle.md).
 
 ### Recommended production topology
 
-- `Vercel`: static frontend from `apps/web/dist`, plus the same-origin `/api/*` proxy implemented in [api/[[...path]].ts](/Users/giuva/Progetti/Github/flathunter/api/[[...path]].ts).
-- `API service`: keep `apps/api` on a normal Node container host because source auth refresh/bootstrap uses Playwright.
-- `Worker service`: keep `apps/worker` on a Playwright-capable container host for live scraping.
-- `Postgres`: Neon or any managed Postgres compatible with `DATABASE_URL`.
+- `Caddy`: serves the built frontend and reverse-proxies `/api/*` to the API.
+- `API service`: runs `apps/api`.
+- `Worker service`: runs `apps/worker` in loop mode for live scraping.
+- `Postgres`: runs in the same compose stack by default.
 
-This keeps the browser app on Vercel while leaving Playwright on infrastructure that can run Chromium reliably.
-The repo also includes a self-hosted Oracle VM profile with API, worker, Postgres, and Caddy in `infra/oracle/`.
+The generic production profile lives in `infra/production/` and is not tied to a specific hosting provider.
