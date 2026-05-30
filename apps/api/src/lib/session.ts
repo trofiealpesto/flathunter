@@ -69,7 +69,7 @@ export function issueSession(reply: FastifyReply, env: ApiEnv, payload: Omit<Ses
     httpOnly: true,
     path: "/",
     sameSite: "lax",
-    secure: env.NODE_ENV === "production",
+    secure: env.APP_ORIGIN.startsWith("https"),
     maxAge: Math.floor(SESSION_TTL_MS / 1000)
   });
 }
@@ -97,7 +97,7 @@ export function issueOauthState(reply: FastifyReply, env: ApiEnv) {
     httpOnly: true,
     path: "/",
     sameSite: "lax",
-    secure: env.NODE_ENV === "production",
+    secure: env.APP_ORIGIN.startsWith("https"),
     maxAge: Math.floor(STATE_TTL_MS / 1000)
   });
   return state.split(".")[0];
