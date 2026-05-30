@@ -1,4 +1,4 @@
-FROM node:22-slim
+FROM mcr.microsoft.com/playwright:v1.58.2-jammy
 
 WORKDIR /app
 
