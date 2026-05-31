@@ -119,8 +119,8 @@ async function evaluateReviewQueue({
 
     let semanticInputFingerprint: string | null | undefined;
     let semanticUpdatedAt: Date | null | undefined;
-    let llmLastErrorKind = undefined;
-    let llmLastErrorAt = undefined;
+    let semanticLastErrorKind = undefined;
+    let semanticLastErrorAt = undefined;
 
     if (shouldUseSemanticClassifier && !canReuseCachedClassification) {
       const timeouts = getRecommendedLlmTimeoutProfile(
@@ -148,14 +148,21 @@ async function evaluateReviewQueue({
         eligibilityReason = semantic.reason;
         semanticInputFingerprint = semantic.inputFingerprint;
         semanticUpdatedAt = new Date();
-        llmLastErrorKind = null;
-        llmLastErrorAt = null;
+        semanticLastErrorKind = null;
+        semanticLastErrorAt = null;
       } else {
+        semanticFlags = semantic.flags;
+        semanticModel = null;
+        eligibilityState = semantic.eligibilityState;
+        eligibilityReason = semantic.reason;
         semanticInputFingerprint = null;
         semanticUpdatedAt = null;
-        llmLastErrorKind = semantic.errorKind;
-        llmLastErrorAt = semantic.errorKind ? new Date() : null;
+        semanticLastErrorKind = semantic.errorKind;
+        semanticLastErrorAt = semantic.errorKind ? new Date() : null;
       }
+    } else if (canReuseCachedClassification) {
+      semanticLastErrorKind = null;
+      semanticLastErrorAt = null;
     }
 
     await updateListingEvaluation(db, candidate.id, {
@@ -167,8 +174,8 @@ async function evaluateReviewQueue({
       semanticModel,
       semanticInputFingerprint,
       semanticUpdatedAt,
-      llmLastErrorKind,
-      llmLastErrorAt
+      semanticLastErrorKind,
+      semanticLastErrorAt
     });
   }
 

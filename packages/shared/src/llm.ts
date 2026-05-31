@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import type { AnalysisFlag, ListingSummary } from "./listings";
+import type { AnalysisFlag, EligibilityState, ListingSummary } from "./listings";
 import type { AppSettings } from "./settings";
 import type { LlmAnalysis, LlmErrorKind } from "./llm-analysis";
 import type { EnglishListingAnalyst, SemanticClassification } from "./semantic";
@@ -20,6 +20,8 @@ const germanMarkers = /\b(wohnung|zimmer|miete|warmmiete|kaltmiete|befristet|zwi
 const englishMarkers = /\b(apartment|flat|room|rent|balcony|elevator|available|kitchen|furnished|long[- ]term)\b/i;
 const PROMPT_TITLE_MAX_CHARS = 180;
 const PROMPT_DESCRIPTION_MAX_CHARS = 2_400;
+const CLASSIFIER_FALLBACK_MATCH_SCORE = 86;
+const CLASSIFIER_FALLBACK_REJECT_SCORE = 35;
 
 type LlmListingInput = Pick<
   ListingSummary,
@@ -73,6 +75,14 @@ type GeminiGenerateContentResponse = {
   promptFeedback?: {
     blockReason?: string;
   };
+};
+
+const semanticFlagByAnalysisFlag: Partial<Record<AnalysisFlag, SemanticClassification["flags"][number]>> = {
+  wbs_required: "WBS_REQUIRED",
+  temporary_sublet: "SHORT_TERM",
+  couple_friendly: "COUPLE_FRIENDLY",
+  long_term: "LONG_TERM",
+  furnished_text: "FURNISHED"
 };
 
 export type LlmRuntimeDeps = {
@@ -144,6 +154,67 @@ function stringifyPromptValue(value: unknown) {
   }
 
   return String(value);
+}
+
+function normalizeDistrict(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function isPreferredDistrict(listing: LlmListingInput, settings: AppSettings) {
+  const district = normalizeDistrict(listing.district);
+
+  if (!district) {
+    return false;
+  }
+
+  return settings.scoring.preferredDistricts.some((preferred) => normalizeDistrict(preferred) === district);
+}
+
+function countPositiveAnalysisSignals(flags: AnalysisFlag[]) {
+  return flags.filter((flag) =>
+    ["long_term", "couple_friendly", "balcony_mentioned", "elevator_mentioned"].includes(flag)
+  ).length;
+}
+
+function listingMeetsCoreProfile(listing: LlmListingInput, settings: AppSettings) {
+  const rent = listing.rentWarm ?? listing.rentCold;
+
+  return (
+    rent != null &&
+    rent <= settings.scoring.maxWarmRent &&
+    listing.sizeSqm != null &&
+    listing.sizeSqm >= settings.scoring.minimumSizeSqm &&
+    listing.rooms != null &&
+    listing.rooms >= settings.scoring.minimumRooms
+  );
+}
+
+function listingClearlyMissesCoreProfile(listing: LlmListingInput, settings: AppSettings) {
+  const rent = listing.rentWarm ?? listing.rentCold;
+
+  return (
+    (rent != null && rent > settings.scoring.maxWarmRent * 1.2) ||
+    (listing.sizeSqm != null && listing.sizeSqm < settings.scoring.minimumSizeSqm * 0.75) ||
+    (listing.rooms != null && listing.rooms < settings.scoring.minimumRooms - 0.75)
+  );
+}
+
+function mapAnalysisFlagsToSemanticFlags(flags: AnalysisFlag[]): SemanticClassification["flags"] {
+  return [
+    ...new Set(
+      flags
+        .map((flag) => semanticFlagByAnalysisFlag[flag])
+        .filter((flag): flag is SemanticClassification["flags"][number] => Boolean(flag))
+    )
+  ];
+}
+
+function describeClassifierError(errorKind: LlmErrorKind | null) {
+  if (!errorKind) {
+    return "unavailable";
+  }
+
+  return errorKind.replace(/_/g, " ");
 }
 
 function truncatePromptText(value: string | null | undefined, maxChars: number) {
@@ -221,11 +292,15 @@ function buildClassifierPrompt(
     `Title: ${truncatePromptText(listing.title, PROMPT_TITLE_MAX_CHARS)}`,
     `Description: ${truncatePromptText(listing.description, PROMPT_DESCRIPTION_MAX_CHARS)}`,
     `District: ${stringifyPromptValue(listing.district)}`,
+    `City: ${stringifyPromptValue(listing.city)}`,
+    `Search districts: ${stringifyPromptValue(settings.search.districts)}`,
+    `Preferred scoring districts: ${stringifyPromptValue(settings.scoring.preferredDistricts)}`,
     `Address: ${stringifyPromptValue(listing.addressLine)}`,
     `Warm rent: ${stringifyPromptValue(listing.rentWarm ?? listing.rentCold)}`,
     `Rooms: ${stringifyPromptValue(listing.rooms)}`,
     `Size sqm: ${stringifyPromptValue(listing.sizeSqm)}`,
     `Available from: ${stringifyPromptValue(listing.availableFrom)}`,
+    `Core scoring profile: max warm rent ${settings.scoring.maxWarmRent}, minimum size ${settings.scoring.minimumSizeSqm} sqm, minimum rooms ${settings.scoring.minimumRooms}`,
     `Deterministic score: ${context.deterministicScore}`,
     `Deterministic reason: ${context.deterministicReason}`,
     `Deterministic analysis flags: ${stringifyPromptValue(context.analysisFlags)}`,
@@ -448,11 +523,43 @@ function shouldRetryClassifier(error: unknown) {
     return false;
   }
 
-  if (error.kind === "timeout" || error.kind === "invalid_json" || error.kind === "rate_limit") {
+  if (error.kind === "timeout" || error.kind === "invalid_json") {
     return true;
   }
 
   return error.kind === "http_error" && error.status != null && error.status >= 500;
+}
+
+function buildClassifierUnavailableFallback(
+  listing: LlmListingInput,
+  settings: AppSettings,
+  context: ListingEligibilityContext,
+  errorKind: LlmErrorKind | null
+): SemanticClassification {
+  const semanticFlags = mapAnalysisFlagsToSemanticFlags(context.analysisFlags);
+  const prefix = `Semantic classifier ${describeClassifierError(errorKind)};`;
+  let eligibilityState: EligibilityState = "UNSURE";
+  let reason = `${prefix} ${context.deterministicReason}`;
+
+  if (
+    context.deterministicScore >= CLASSIFIER_FALLBACK_MATCH_SCORE &&
+    (listingMeetsCoreProfile(listing, settings) || isPreferredDistrict(listing, settings) || countPositiveAnalysisSignals(context.analysisFlags) > 0)
+  ) {
+    eligibilityState = "MATCH";
+    reason = `${prefix} deterministic fallback match: score ${context.deterministicScore}.`;
+  } else if (
+    context.deterministicScore <= CLASSIFIER_FALLBACK_REJECT_SCORE ||
+    listingClearlyMissesCoreProfile(listing, settings)
+  ) {
+    eligibilityState = "REJECT";
+    reason = `${prefix} deterministic fallback reject: score ${context.deterministicScore}.`;
+  }
+
+  return {
+    eligibilityState,
+    reason,
+    flags: semanticFlags
+  };
 }
 
 export function getLlmErrorKind(error: unknown): LlmErrorKind {
@@ -487,6 +594,11 @@ export function buildSemanticClassificationFingerprint(
         deterministicScore: context.deterministicScore,
         deterministicReason: context.deterministicReason,
         analysisFlags: context.analysisFlags,
+        searchDistricts: settings.search.districts,
+        preferredDistricts: settings.scoring.preferredDistricts,
+        maxWarmRent: settings.scoring.maxWarmRent,
+        minimumSizeSqm: settings.scoring.minimumSizeSqm,
+        minimumRooms: settings.scoring.minimumRooms,
         semanticRules: settings.semanticRules,
         llmProvider: settings.runtime.llmProvider,
         classifierModel: settings.runtime.llmClassifierModel,
@@ -571,25 +683,27 @@ export async function classifyListingEligibility(
           didRetry
         };
       } catch (retryError) {
+        const errorKind = getLlmErrorKind(retryError);
+        const fallback = buildClassifierUnavailableFallback(listing, settings, context, errorKind);
+
         return {
-          eligibilityState: "UNSURE",
-          reason: "Semantic classifier unavailable",
-          flags: [],
+          ...fallback,
           inputFingerprint,
           usedFallback: true,
-          errorKind: getLlmErrorKind(retryError),
+          errorKind,
           didRetry
         };
       }
     }
 
+    const errorKind = getLlmErrorKind(error);
+    const fallback = buildClassifierUnavailableFallback(listing, settings, context, errorKind);
+
     return {
-      eligibilityState: "UNSURE",
-      reason: "Semantic classifier unavailable",
-      flags: [],
+      ...fallback,
       inputFingerprint,
       usedFallback: true,
-      errorKind: getLlmErrorKind(error),
+      errorKind,
       didRetry
     };
   }

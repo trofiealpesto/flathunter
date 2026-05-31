@@ -50,6 +50,43 @@ function isSettingsSectionId(value: string): value is SettingsSectionId {
   return sections.some((section) => section.id === value);
 }
 
+type ListTextareaProps = {
+  id: string;
+  rows: number;
+  value: string[];
+  onValueChange: (value: string[]) => void;
+};
+
+function ListTextarea({ id, rows, value, onValueChange }: ListTextareaProps) {
+  const [text, setText] = useState(() => toMultiline(value));
+  const [focused, setFocused] = useState(false);
+  const valueText = toMultiline(value);
+
+  useEffect(() => {
+    if (!focused) {
+      setText(valueText);
+    }
+  }, [focused, valueText]);
+
+  return (
+    <Textarea
+      id={id}
+      onBlur={() => {
+        setFocused(false);
+        setText(toMultiline(parseMultiline(text)));
+      }}
+      onChange={(event) => {
+        const next = event.target.value;
+        setText(next);
+        onValueChange(parseMultiline(next));
+      }}
+      onFocus={() => setFocused(true)}
+      rows={rows}
+      value={text}
+    />
+  );
+}
+
 export function SettingsPage({
   settings,
   loading,
@@ -217,17 +254,17 @@ export function SettingsPage({
                   className="md:col-span-2"
                   description="One district per line or comma separated."
                   htmlFor="search-districts"
-                  label="Preferred districts"
+                  label="Search districts"
                 >
-                  <Textarea
+                  <ListTextarea
                     id="search-districts"
-                    onChange={(event) =>
+                    onValueChange={(districts) =>
                       setDraft((current) =>
-                        current ? { ...current, search: { ...current.search, districts: parseMultiline(event.target.value) } } : current
+                        current ? { ...current, search: { ...current.search, districts } } : current
                       )
                     }
                     rows={5}
-                    value={toMultiline(draft.search.districts)}
+                    value={draft.search.districts}
                   />
                 </FormField>
               </div>
@@ -339,6 +376,23 @@ export function SettingsPage({
           <TabsContent className="mt-0" id="scoring" value="scoring">
             <SurfaceCard subtitle="Deterministic score thresholds and bonuses." title="Scoring">
               <div className="grid gap-4 md:grid-cols-3">
+                <FormField
+                  className="md:col-span-3"
+                  description="One district per line or comma separated."
+                  htmlFor="score-preferred-districts"
+                  label="Preferred districts"
+                >
+                  <ListTextarea
+                    id="score-preferred-districts"
+                    onValueChange={(preferredDistricts) =>
+                      setDraft((current) =>
+                        current ? { ...current, scoring: { ...current.scoring, preferredDistricts } } : current
+                      )
+                    }
+                    rows={4}
+                    value={draft.scoring.preferredDistricts}
+                  />
+                </FormField>
                 {[
                   { id: "score-max-rent", label: "Max warm rent", key: "maxWarmRent", min: 0 },
                   { id: "score-min-size", label: "Minimum size", key: "minimumSizeSqm", min: 0 },
@@ -460,31 +514,31 @@ export function SettingsPage({
             <SurfaceCard subtitle="Textual constraints passed into semantic classification." title="Semantic rules">
               <div className="grid gap-4 md:grid-cols-2">
                 <FormField description="One rule per line or comma separated." htmlFor="semantic-must-match" label="Must match">
-                  <Textarea
+                  <ListTextarea
                     id="semantic-must-match"
-                    onChange={(event) =>
+                    onValueChange={(mustMatch) =>
                       setDraft((current) =>
                         current
-                          ? { ...current, semanticRules: { ...current.semanticRules, mustMatch: parseMultiline(event.target.value) } }
+                          ? { ...current, semanticRules: { ...current.semanticRules, mustMatch } }
                           : current
                       )
                     }
                     rows={5}
-                    value={toMultiline(draft.semanticRules.mustMatch)}
+                    value={draft.semanticRules.mustMatch}
                   />
                 </FormField>
                 <FormField description="One rule per line or comma separated." htmlFor="semantic-avoid" label="Avoid">
-                  <Textarea
+                  <ListTextarea
                     id="semantic-avoid"
-                    onChange={(event) =>
+                    onValueChange={(avoid) =>
                       setDraft((current) =>
                         current
-                          ? { ...current, semanticRules: { ...current.semanticRules, avoid: parseMultiline(event.target.value) } }
+                          ? { ...current, semanticRules: { ...current.semanticRules, avoid } }
                           : current
                       )
                     }
                     rows={5}
-                    value={toMultiline(draft.semanticRules.avoid)}
+                    value={draft.semanticRules.avoid}
                   />
                 </FormField>
                 <FormField className="md:col-span-2" htmlFor="semantic-notes" label="Classifier notes">

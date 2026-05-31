@@ -81,6 +81,7 @@ export const geoPrecisionBreakdownItemSchema = z.object({
 
 export const llmHealthSchema = z.object({
   classifierReady: z.number().int().nonnegative(),
+  classifierError: z.number().int().nonnegative(),
   analystReady: z.number().int().nonnegative(),
   analystMissing: z.number().int().nonnegative(),
   analystStale: z.number().int().nonnegative(),

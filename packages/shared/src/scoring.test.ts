@@ -39,5 +39,18 @@ describe("computeDeterministicScore", () => {
 
     expect(score).toBeLessThan(40);
   });
-});
 
+  it("matches preferred districts case-insensitively", () => {
+    const score = computeDeterministicScore(
+      {
+        rentWarm: 1600,
+        sizeSqm: 60,
+        rooms: 2,
+        district: "mitte"
+      },
+      defaultAppSettings
+    );
+
+    expect(score).toBeGreaterThanOrEqual(62);
+  });
+});

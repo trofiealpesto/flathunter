@@ -365,11 +365,12 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
           />
         </SurfaceCard>
 
-        <SurfaceCard className="lg:col-span-3" subtitle="Classifier cache and analyst freshness." title="LLM health">
+        <SurfaceCard className="lg:col-span-3" subtitle="Classifier cache/errors and analyst freshness." title="LLM health">
           <CompactMetricBreakdown
             items={[
-              { label: "Classifier ready", count: dashboardStats.llmHealth.classifierReady, tone: "success" },
-              { label: "Analyst missing", count: dashboardStats.llmHealth.analystMissing, tone: "warning" },
+              { label: "Classifier cached", count: dashboardStats.llmHealth.classifierReady, tone: "success" },
+              { label: "Classifier error", count: dashboardStats.llmHealth.classifierError, tone: "error" },
+              { label: "Analyst not generated", count: dashboardStats.llmHealth.analystMissing, tone: "warning" },
               { label: "Analyst stale", count: dashboardStats.llmHealth.analystStale, tone: "info" },
               { label: "Analyst error", count: dashboardStats.llmHealth.analystError, tone: "error" }
             ]}

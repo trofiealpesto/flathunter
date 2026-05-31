@@ -208,6 +208,7 @@ describe("repositories", { timeout: 20_000 }, () => {
     expect(stats.rentSizePoints).toHaveLength(2);
     expect(stats.llmHealth).toEqual({
       classifierReady: 0,
+      classifierError: 0,
       analystReady: 0,
       analystMissing: 2,
       analystStale: 0,

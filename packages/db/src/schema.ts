@@ -74,6 +74,8 @@ export const listings = pgTable(
     semanticModel: text("semantic_model"),
     semanticInputFingerprint: text("semantic_input_fingerprint"),
     semanticUpdatedAt: timestamp("semantic_updated_at", { withTimezone: true }),
+    semanticLastErrorKind: text("semantic_last_error_kind").$type<LlmErrorKind | null>(),
+    semanticLastErrorAt: timestamp("semantic_last_error_at", { withTimezone: true }),
     llmAnalysis: jsonb("llm_analysis").$type<LlmAnalysis | null>(),
     llmLastErrorKind: text("llm_last_error_kind").$type<LlmErrorKind | null>(),
     llmLastErrorAt: timestamp("llm_last_error_at", { withTimezone: true }),

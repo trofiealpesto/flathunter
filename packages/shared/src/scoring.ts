@@ -2,6 +2,7 @@ import type { AppSettings } from "./settings";
 import type { AnalysisFlag, ListingUpsertInput } from "./listings";
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+const normalizeDistrict = (value: string) => value.trim().toLowerCase();
 
 export function canonicalizeListingUrl(input: string): string {
   try {
@@ -46,7 +47,10 @@ export function computeDeterministicScore(
     score -= settings.scoring.furnishedPenalty;
   }
 
-  if (listing.district && settings.scoring.preferredDistricts.includes(listing.district)) {
+  if (
+    listing.district &&
+    settings.scoring.preferredDistricts.some((district) => normalizeDistrict(district) === normalizeDistrict(listing.district ?? ""))
+  ) {
     score += 10;
   }
 

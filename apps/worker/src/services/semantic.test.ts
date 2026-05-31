@@ -188,7 +188,50 @@ describe("classifyListingEligibility", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(result.usedFallback).toBe(true);
     expect(result.errorKind).toBe("timeout");
-    expect(result.reason).toBe("Semantic classifier unavailable");
+    expect(result.eligibilityState).toBe("UNSURE");
+    expect(result.reason).toContain("Semantic classifier timeout");
+  });
+
+  it("uses a deterministic match fallback for strong listings when Gemini is unavailable", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            message: "Too many requests"
+          }
+        }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      )
+    ) as unknown as typeof fetch;
+
+    const result = await classifyListingEligibility(
+      {
+        ...listing,
+        rentWarm: 1450,
+        sizeSqm: 80,
+        rooms: 3,
+        district: "Mitte"
+      },
+      defaultAppSettings,
+      {
+        deterministicScore: 91,
+        deterministicReason: "Deterministic review needed: score 91; no strong text signals.",
+        analysisFlags: []
+      },
+      {
+        apiKey: "gemini-test-key",
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+        classifierModel: "gemini-2.5-flash-lite",
+        analystModel: "gemini-2.5-flash",
+        fetchImpl
+      }
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result.usedFallback).toBe(true);
+    expect(result.errorKind).toBe("rate_limit");
+    expect(result.eligibilityState).toBe("MATCH");
+    expect(result.reason).toContain("deterministic fallback match");
   });
 });
 

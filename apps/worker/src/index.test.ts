@@ -501,4 +501,79 @@ describe("runWorkerOnce", () => {
       })
     );
   });
+
+  it("applies deterministic fallback output without marking the classifier cache ready", async () => {
+    mocks.listEnabledPortalSourcesDue.mockResolvedValue([]);
+    mocks.getSettings.mockResolvedValue({
+      runtime: {
+        scrapeWithFixtures: false,
+        enableSemanticClassifier: true,
+        enableLlmEnrichment: true,
+        llmProvider: "gemini",
+        llmClassifierModel: "gemini-2.5-flash-lite",
+        llmAnalystModel: "gemini-2.5-flash"
+      }
+    });
+    mocks.listListingsForEvaluation.mockResolvedValue([
+      {
+        id: "listing-1",
+        title: "Sunny flat",
+        description: "Large apartment in Mitte",
+        eligibilityState: "UNSURE",
+        eligibilityReason: null,
+        semanticFlags: [],
+        semanticModel: null,
+        semanticInputFingerprint: null,
+        semanticLastErrorKind: null,
+        llmLastErrorKind: null,
+        llmAnalysis: null,
+        llmAnalysisStatus: "missing",
+        analysisFlags: []
+      }
+    ]);
+    mocks.evaluateListingDeterministically.mockReturnValue({
+      score: 91,
+      eligibilityState: "UNSURE",
+      reason: "needs review",
+      analysisFlags: [],
+      shouldRunSemanticClassifier: true
+    });
+    mocks.classifyListingEligibility.mockResolvedValue({
+      eligibilityState: "MATCH",
+      reason: "Semantic classifier rate limit; deterministic fallback match: score 91.",
+      flags: [],
+      inputFingerprint: "test-fingerprint",
+      usedFallback: true,
+      errorKind: "rate_limit",
+      didRetry: true
+    });
+
+    const { runWorkerOnce } = await import("./index");
+
+    await runWorkerOnce({
+      envInput: {
+        NODE_ENV: "test",
+        DATABASE_URL: "postgres://unused",
+        PORTAL_SECRETS_KEY: "portal-secrets-key-for-tests",
+        GEMINI_API_KEY: "gemini-test-key",
+        GEMINI_API_BASE_URL: "https://generativelanguage.googleapis.com/v1beta",
+        IMMOWELT_SEARCH_URL: "https://www.immowelt.de/liste/berlin/wohnungen/mieten",
+        IMMOWELT_ENABLE_LIVE_BROWSER: "true",
+        WORKER_DEV_INTERVAL_MS: "300000"
+      }
+    });
+
+    expect(mocks.updateListingEvaluation).toHaveBeenCalledWith(
+      db,
+      "listing-1",
+      expect.objectContaining({
+        eligibilityState: "MATCH",
+        eligibilityReason: "Semantic classifier rate limit; deterministic fallback match: score 91.",
+        semanticModel: null,
+        semanticInputFingerprint: null,
+        semanticLastErrorKind: "rate_limit",
+        semanticLastErrorAt: expect.any(Date)
+      })
+    );
+  });
 });

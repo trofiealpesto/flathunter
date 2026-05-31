@@ -689,6 +689,8 @@ export async function updateListingEvaluation(
     semanticModel: string | null;
     semanticInputFingerprint?: string | null;
     semanticUpdatedAt?: Date | null;
+    semanticLastErrorKind?: LlmErrorKind | null;
+    semanticLastErrorAt?: Date | null;
     llmLastErrorKind?: LlmErrorKind | null;
     llmLastErrorAt?: Date | null;
     llmAnalysis?: LlmAnalysis | null;
@@ -707,6 +709,8 @@ export async function updateListingEvaluation(
         ? { semanticInputFingerprint: payload.semanticInputFingerprint }
         : {}),
       ...(payload.semanticUpdatedAt !== undefined ? { semanticUpdatedAt: payload.semanticUpdatedAt } : {}),
+      ...(payload.semanticLastErrorKind !== undefined ? { semanticLastErrorKind: payload.semanticLastErrorKind } : {}),
+      ...(payload.semanticLastErrorAt !== undefined ? { semanticLastErrorAt: payload.semanticLastErrorAt } : {}),
       ...(payload.llmLastErrorKind !== undefined ? { llmLastErrorKind: payload.llmLastErrorKind } : {}),
       ...(payload.llmLastErrorAt !== undefined ? { llmLastErrorAt: payload.llmLastErrorAt } : {}),
       ...(payload.llmAnalysis !== undefined ? { llmAnalysis: payload.llmAnalysis } : {}),
@@ -756,6 +760,7 @@ export async function listListingsForEvaluation(db: Database) {
   return rows.map((row) => ({
     ...serializeListing(row),
     semanticInputFingerprint: row.semanticInputFingerprint,
+    semanticLastErrorKind: parseLlmErrorKind(row.semanticLastErrorKind),
     llmLastErrorKind: parseLlmErrorKind(row.llmLastErrorKind)
   }));
 }
@@ -1035,6 +1040,7 @@ export async function getDashboardStats(db: Database) {
 
   const llmHealth = {
     classifierReady: rows.filter((row) => Boolean(row.semanticInputFingerprint)).length,
+    classifierError: rows.filter((row) => Boolean(row.semanticLastErrorKind)).length,
     analystReady: serializedRows.filter((row) => row.llmAnalysisStatus === "ready").length,
     analystMissing: serializedRows.filter((row) => row.llmAnalysisStatus === "missing").length,
     analystStale: serializedRows.filter((row) => row.llmAnalysisStatus === "stale").length,
