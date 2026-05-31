@@ -18,6 +18,8 @@ export function registerStatsRoutes(app: FastifyInstance, deps: AppDeps) {
       return;
     }
 
-    return getDashboardStats(deps.db);
+    return getDashboardStats(deps.db, {
+      llmProviderConfigured: Boolean(deps.env.GEMINI_API_KEY?.trim())
+    });
   });
 }

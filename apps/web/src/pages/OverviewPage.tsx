@@ -84,6 +84,18 @@ function getGeoPrecisionLabel(value: DashboardStats["geoPrecisionBreakdown"][num
   return "Unknown";
 }
 
+function formatLlmErrorKind(value: DashboardStats["llmHealth"]["classifierErrorBreakdown"][number]["kind"]) {
+  return value.replace(/_/g, " ");
+}
+
+function getDominantLlmErrorLabel(
+  prefix: string,
+  breakdown: DashboardStats["llmHealth"]["classifierErrorBreakdown"]
+) {
+  const dominant = breakdown[0];
+  return dominant ? `${prefix} (${formatLlmErrorKind(dominant.kind)})` : prefix;
+}
+
 function toggleValue<T>(current: T | null, next: T) {
   return current === next ? null : next;
 }
@@ -366,13 +378,27 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
         </SurfaceCard>
 
         <SurfaceCard className="lg:col-span-3" subtitle="Classifier cache/errors and analyst freshness." title="LLM health">
+          {!dashboardStats.llmHealth.providerConfigured ? (
+            <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+              <strong className="block">Gemini key missing</strong>
+              <span className="text-muted-foreground">API/worker env does not expose GEMINI_API_KEY.</span>
+            </div>
+          ) : null}
           <CompactMetricBreakdown
             items={[
               { label: "Classifier cached", count: dashboardStats.llmHealth.classifierReady, tone: "success" },
-              { label: "Classifier error", count: dashboardStats.llmHealth.classifierError, tone: "error" },
+              {
+                label: getDominantLlmErrorLabel("Classifier error", dashboardStats.llmHealth.classifierErrorBreakdown),
+                count: dashboardStats.llmHealth.classifierError,
+                tone: "error"
+              },
               { label: "Analyst not generated", count: dashboardStats.llmHealth.analystMissing, tone: "warning" },
               { label: "Analyst stale", count: dashboardStats.llmHealth.analystStale, tone: "info" },
-              { label: "Analyst error", count: dashboardStats.llmHealth.analystError, tone: "error" }
+              {
+                label: getDominantLlmErrorLabel("Analyst error", dashboardStats.llmHealth.analystErrorBreakdown),
+                count: dashboardStats.llmHealth.analystError,
+                tone: "error"
+              }
             ]}
             total={dashboardStats.totals.listings}
           />

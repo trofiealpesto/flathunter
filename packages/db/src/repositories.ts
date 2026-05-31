@@ -268,6 +268,24 @@ function parseLlmErrorKind(value: unknown): LlmErrorKind | null {
   return parsed.success ? parsed.data : null;
 }
 
+function buildLlmErrorBreakdown(values: unknown[]) {
+  const counts = new Map<LlmErrorKind, number>();
+
+  for (const value of values) {
+    const kind = parseLlmErrorKind(value);
+
+    if (!kind) {
+      continue;
+    }
+
+    counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([kind, count]) => ({ kind, count }))
+    .sort((left, right) => right.count - left.count);
+}
+
 function getOfficeLocation(settings: AppSettings): OfficeLocation | null {
   return settings.search.officeLocation ?? null;
 }
@@ -867,7 +885,12 @@ export async function getStatsSummary(db: Database) {
   };
 }
 
-export async function getDashboardStats(db: Database) {
+export async function getDashboardStats(
+  db: Database,
+  options: {
+    llmProviderConfigured?: boolean;
+  } = {}
+) {
   const settings = await getSettings(db);
   const officeLocation = getOfficeLocation(settings);
   const rows = await db.select().from(listings);
@@ -1039,12 +1062,15 @@ export async function getDashboardStats(db: Database) {
   }));
 
   const llmHealth = {
+    providerConfigured: options.llmProviderConfigured ?? true,
     classifierReady: rows.filter((row) => Boolean(row.semanticInputFingerprint)).length,
     classifierError: rows.filter((row) => Boolean(row.semanticLastErrorKind)).length,
+    classifierErrorBreakdown: buildLlmErrorBreakdown(rows.map((row) => row.semanticLastErrorKind)),
     analystReady: serializedRows.filter((row) => row.llmAnalysisStatus === "ready").length,
     analystMissing: serializedRows.filter((row) => row.llmAnalysisStatus === "missing").length,
     analystStale: serializedRows.filter((row) => row.llmAnalysisStatus === "stale").length,
-    analystError: serializedRows.filter((row) => row.llmAnalysisStatus === "error").length
+    analystError: serializedRows.filter((row) => row.llmAnalysisStatus === "error").length,
+    analystErrorBreakdown: buildLlmErrorBreakdown(rows.map((row) => row.llmLastErrorKind))
   };
 
   return {

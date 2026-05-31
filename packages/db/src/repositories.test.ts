@@ -207,12 +207,15 @@ describe("repositories", { timeout: 20_000 }, () => {
     expect(stats.distanceBands.some((item) => item.count > 0)).toBe(true);
     expect(stats.rentSizePoints).toHaveLength(2);
     expect(stats.llmHealth).toEqual({
+      providerConfigured: true,
       classifierReady: 0,
       classifierError: 0,
+      classifierErrorBreakdown: [],
       analystReady: 0,
       analystMissing: 2,
       analystStale: 0,
-      analystError: 0
+      analystError: 0,
+      analystErrorBreakdown: []
     });
     expect(stats.geoPrecisionBreakdown).toEqual(
       expect.arrayContaining([

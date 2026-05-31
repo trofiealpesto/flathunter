@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { eligibilityStateSchema, portalSchema, userStatusSchema } from "./listings";
-import { llmAnalysisStatusSchema } from "./llm-analysis";
+import { llmAnalysisStatusSchema, llmErrorKindSchema } from "./llm-analysis";
 import { listingGeoSourceSchema } from "./geo";
 
 export const dashboardTotalsSchema = z.object({
@@ -79,13 +79,21 @@ export const geoPrecisionBreakdownItemSchema = z.object({
   count: z.number().int().nonnegative()
 });
 
+export const llmErrorBreakdownItemSchema = z.object({
+  kind: llmErrorKindSchema,
+  count: z.number().int().nonnegative()
+});
+
 export const llmHealthSchema = z.object({
+  providerConfigured: z.boolean(),
   classifierReady: z.number().int().nonnegative(),
   classifierError: z.number().int().nonnegative(),
+  classifierErrorBreakdown: z.array(llmErrorBreakdownItemSchema),
   analystReady: z.number().int().nonnegative(),
   analystMissing: z.number().int().nonnegative(),
   analystStale: z.number().int().nonnegative(),
-  analystError: z.number().int().nonnegative()
+  analystError: z.number().int().nonnegative(),
+  analystErrorBreakdown: z.array(llmErrorBreakdownItemSchema)
 });
 
 export const dashboardStatsSchema = z.object({
@@ -113,5 +121,6 @@ export type DistanceBand = z.infer<typeof distanceBandSchema>;
 export type RentSizePoint = z.infer<typeof rentSizePointSchema>;
 export type GeoPrecision = z.infer<typeof geoPrecisionSchema>;
 export type GeoPrecisionBreakdownItem = z.infer<typeof geoPrecisionBreakdownItemSchema>;
+export type LlmErrorBreakdownItem = z.infer<typeof llmErrorBreakdownItemSchema>;
 export type LlmHealth = z.infer<typeof llmHealthSchema>;
 export type DashboardStats = z.infer<typeof dashboardStatsSchema>;
