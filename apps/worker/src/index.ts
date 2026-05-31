@@ -119,7 +119,9 @@ async function evaluateReviewQueue({
   const candidates = await listListingsForEvaluation(db);
   const semanticClassifierConfigured = Boolean(env.GEMINI_API_KEY?.trim());
   let stopSemanticClassifierForRun = !semanticClassifierConfigured;
+  let stopClassifierFallbackForRun = false;
   let semanticClassifierCalls = 0;
+  let semanticClassifierFallbackCalls = 0;
   let lastSemanticClassifierCallAt = 0;
 
   for (const candidate of candidates) {
@@ -137,8 +139,7 @@ async function evaluateReviewQueue({
     });
     const canReuseCachedClassification =
       semanticClassifierEnabled &&
-      candidate.semanticInputFingerprint === inputFingerprint &&
-      candidate.semanticModel === settings.runtime.llmClassifierModel;
+      candidate.semanticInputFingerprint === inputFingerprint;
 
     if (canReuseCachedClassification) {
       semanticFlags = candidate.semanticFlags;
@@ -154,6 +155,7 @@ async function evaluateReviewQueue({
     let semanticLastErrorAt = undefined;
 
     const hasClassifierBudget = semanticClassifierCalls < env.GEMINI_CLASSIFIER_MAX_PER_RUN;
+    const hasClassifierFallbackBudget = semanticClassifierFallbackCalls < env.GEMINI_CLASSIFIER_FALLBACK_MAX_PER_RUN;
     const isInClassifierCooldown = isClassifierCooldownActive({
       errorKind: candidate.semanticLastErrorKind,
       errorAt: candidate.semanticLastErrorAt,
@@ -184,6 +186,10 @@ async function evaluateReviewQueue({
         settings.runtime.llmClassifierModel,
         settings.runtime.llmAnalystModel
       );
+      const fallbackTimeouts = getRecommendedLlmTimeoutProfile(
+        settings.runtime.llmClassifierFallbackModel ?? settings.runtime.llmClassifierModel,
+        settings.runtime.llmAnalystModel
+      );
       const semantic = await classifyListingEligibility(candidate, settings, {
         deterministicScore: deterministic.score,
         deterministicReason: deterministic.reason,
@@ -193,18 +199,35 @@ async function evaluateReviewQueue({
         baseUrl: env.GEMINI_API_BASE_URL,
         classifierModel: settings.runtime.llmClassifierModel,
         analystModel: settings.runtime.llmAnalystModel,
+        fallbackModel: settings.runtime.llmClassifierFallbackModel ?? settings.runtime.llmClassifierModel,
         fetchImpl,
         timeoutMs: timeouts.classificationTimeoutMs,
-        retryTimeoutMs: timeouts.classificationRetryTimeoutMs
+        retryTimeoutMs: timeouts.classificationRetryTimeoutMs,
+        fallbackTimeoutMs: fallbackTimeouts.classificationTimeoutMs,
+        allowClassifierFallback: !stopClassifierFallbackForRun && hasClassifierFallbackBudget
       });
 
+      if (semantic.classifierFallbackAttempted) {
+        semanticClassifierFallbackCalls += 1;
+      }
+
+      if (
+        semantic.classifierFallbackErrorKind === "rate_limit" ||
+        semantic.classifierFallbackErrorKind === "auth_error" ||
+        semantic.classifierFallbackErrorKind === "http_error"
+      ) {
+        stopClassifierFallbackForRun = true;
+      }
+
       if (!semantic.usedFallback) {
+        const cacheSemanticResult = !semantic.classifierFallbackWanted || semantic.classifierFallbackAttempted;
+
         semanticFlags = semantic.flags;
-        semanticModel = settings.runtime.llmClassifierModel;
+        semanticModel = cacheSemanticResult ? semantic.model ?? settings.runtime.llmClassifierModel : null;
         eligibilityState = semantic.eligibilityState;
         eligibilityReason = semantic.reason;
-        semanticInputFingerprint = semantic.inputFingerprint;
-        semanticUpdatedAt = new Date();
+        semanticInputFingerprint = cacheSemanticResult ? semantic.inputFingerprint : null;
+        semanticUpdatedAt = cacheSemanticResult ? new Date() : null;
         semanticLastErrorKind = null;
         semanticLastErrorAt = null;
       } else {
@@ -217,7 +240,10 @@ async function evaluateReviewQueue({
         semanticLastErrorKind = semantic.errorKind;
         semanticLastErrorAt = semantic.errorKind ? new Date() : null;
 
-        if (semantic.errorKind === "rate_limit" || semantic.errorKind === "auth_error" || semantic.errorKind === "http_error") {
+        if (
+          semantic.errorSource === "primary" &&
+          (semantic.errorKind === "rate_limit" || semantic.errorKind === "auth_error" || semantic.errorKind === "http_error")
+        ) {
           stopSemanticClassifierForRun = true;
         }
       }

@@ -286,6 +286,22 @@ function buildLlmErrorBreakdown(values: unknown[]) {
     .sort((left, right) => right.count - left.count);
 }
 
+function buildModelBreakdown(rows: Array<{ semanticInputFingerprint: string | null; semanticModel: string | null }>) {
+  const counts = new Map<string, number>();
+
+  for (const row of rows) {
+    if (!row.semanticInputFingerprint || !row.semanticModel) {
+      continue;
+    }
+
+    counts.set(row.semanticModel, (counts.get(row.semanticModel) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([model, count]) => ({ model, count }))
+    .sort((left, right) => right.count - left.count);
+}
+
 function getOfficeLocation(settings: AppSettings): OfficeLocation | null {
   return settings.search.officeLocation ?? null;
 }
@@ -1065,6 +1081,7 @@ export async function getDashboardStats(
   const llmHealth = {
     providerConfigured: options.llmProviderConfigured ?? true,
     classifierReady: rows.filter((row) => Boolean(row.semanticInputFingerprint)).length,
+    classifierModelBreakdown: buildModelBreakdown(rows),
     classifierError: rows.filter((row) => Boolean(row.semanticLastErrorKind)).length,
     classifierErrorBreakdown: buildLlmErrorBreakdown(rows.map((row) => row.semanticLastErrorKind)),
     analystReady: serializedRows.filter((row) => row.llmAnalysisStatus === "ready").length,

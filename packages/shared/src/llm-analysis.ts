@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const llmAnalysisPromptVersion = "english-analyst-v2";
-export const semanticClassificationPromptVersion = "eligibility-classifier-v2";
+export const semanticClassificationPromptVersion = "eligibility-classifier-v3";
 
 export const llmErrorKindSchema = z.enum([
   "timeout",

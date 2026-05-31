@@ -70,6 +70,55 @@ function buildGeminiResponse(payload: unknown) {
 }
 
 describe("classifyListingEligibility", () => {
+  it("includes classifier fallback settings in the semantic fingerprint", () => {
+    const context = {
+      deterministicScore: 82,
+      deterministicReason: "Deterministic review needed: score 82; no strong text signals.",
+      analysisFlags: []
+    };
+    const baseline = buildSemanticClassificationFingerprint(listing, defaultAppSettings, context);
+
+    expect(
+      buildSemanticClassificationFingerprint(
+        listing,
+        {
+          ...defaultAppSettings,
+          runtime: {
+            ...defaultAppSettings.runtime,
+            llmClassifierFallbackModel: "gemini-2.5-pro"
+          }
+        },
+        context
+      )
+    ).not.toBe(baseline);
+    expect(
+      buildSemanticClassificationFingerprint(
+        listing,
+        {
+          ...defaultAppSettings,
+          runtime: {
+            ...defaultAppSettings.runtime,
+            llmClassifierFallbackEnabled: false
+          }
+        },
+        context
+      )
+    ).not.toBe(baseline);
+    expect(
+      buildSemanticClassificationFingerprint(
+        listing,
+        {
+          ...defaultAppSettings,
+          runtime: {
+            ...defaultAppSettings.runtime,
+            llmClassifierFallbackMinScore: 90
+          }
+        },
+        context
+      )
+    ).not.toBe(baseline);
+  });
+
   it("classifies in a single Gemini request", async () => {
     const fetchImpl = vi.fn(async () =>
       buildGeminiResponse({
@@ -106,6 +155,173 @@ describe("classifyListingEligibility", () => {
         analysisFlags: ["long_term", "balcony_mentioned", "elevator_mentioned"]
       })
     );
+  });
+
+  it("escalates high-score Gemma UNSURE results to the Flash fallback", async () => {
+    const fetchImpl = vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url).includes("gemma-4-26b-a4b-it")) {
+        return buildGeminiResponse({
+          eligibilityState: "UNSURE",
+          reason: "The primary model wants a premium check.",
+          flags: []
+        });
+      }
+
+      return buildGeminiResponse({
+        eligibilityState: "MATCH",
+        reason: "Flash confirms the listing is a strong fit.",
+        flags: ["LONG_TERM"]
+      });
+    }) as unknown as typeof fetch;
+
+    const result = await classifyListingEligibility(
+      listing,
+      defaultAppSettings,
+      {
+        deterministicScore: 82,
+        deterministicReason: "Deterministic review needed: score 82; no strong text signals.",
+        analysisFlags: []
+      },
+      {
+        apiKey: "gemini-test-key",
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+        classifierModel: "gemma-4-26b-a4b-it",
+        analystModel: "gemini-2.5-flash",
+        fallbackModel: "gemini-2.5-flash",
+        fetchImpl,
+        allowClassifierFallback: true
+      }
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(result.eligibilityState).toBe("MATCH");
+    expect(result.model).toBe("gemini-2.5-flash");
+    expect(result.classifierFallbackAttempted).toBe(true);
+    expect(result.classifierFallbackSucceeded).toBe(true);
+  });
+
+  it("does not escalate low-score Gemma UNSURE results", async () => {
+    const fetchImpl = vi.fn(async () =>
+      buildGeminiResponse({
+        eligibilityState: "UNSURE",
+        reason: "The listing is too ambiguous for premium fallback.",
+        flags: []
+      })
+    ) as unknown as typeof fetch;
+
+    const result = await classifyListingEligibility(
+      listing,
+      defaultAppSettings,
+      {
+        deterministicScore: 79,
+        deterministicReason: "Deterministic review needed: score 79; no strong text signals.",
+        analysisFlags: []
+      },
+      {
+        apiKey: "gemini-test-key",
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+        classifierModel: "gemma-4-26b-a4b-it",
+        analystModel: "gemini-2.5-flash",
+        fallbackModel: "gemini-2.5-flash",
+        fetchImpl,
+        allowClassifierFallback: true
+      }
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result.eligibilityState).toBe("UNSURE");
+    expect(result.model).toBe("gemma-4-26b-a4b-it");
+    expect(result.classifierFallbackAttempted).toBe(false);
+  });
+
+  it("escalates recoverable primary failures to Flash", async () => {
+    let callCount = 0;
+    const fetchImpl = vi.fn(async (url: RequestInfo | URL) => {
+      callCount += 1;
+
+      if (String(url).includes("gemma-4-26b-a4b-it")) {
+        return new Response(
+          JSON.stringify({
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: "not-json" }]
+                }
+              }
+            ]
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      return buildGeminiResponse({
+        eligibilityState: "MATCH",
+        reason: `Flash recovered after ${callCount} calls.`,
+        flags: ["LONG_TERM"]
+      });
+    }) as unknown as typeof fetch;
+
+    const result = await classifyListingEligibility(
+      listing,
+      defaultAppSettings,
+      {
+        deterministicScore: 90,
+        deterministicReason: "Deterministic review needed: score 90; no strong text signals.",
+        analysisFlags: []
+      },
+      {
+        apiKey: "gemini-test-key",
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+        classifierModel: "gemma-4-26b-a4b-it",
+        analystModel: "gemini-2.5-flash",
+        fallbackModel: "gemini-2.5-flash",
+        fetchImpl,
+        allowClassifierFallback: true
+      }
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(result.usedFallback).toBe(false);
+    expect(result.model).toBe("gemini-2.5-flash");
+    expect(result.classifierFallbackSucceeded).toBe(true);
+  });
+
+  it("does not escalate primary rate limits to Flash", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            message: "Too many requests"
+          }
+        }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      )
+    ) as unknown as typeof fetch;
+
+    const result = await classifyListingEligibility(
+      listing,
+      defaultAppSettings,
+      {
+        deterministicScore: 90,
+        deterministicReason: "Deterministic review needed: score 90; no strong text signals.",
+        analysisFlags: []
+      },
+      {
+        apiKey: "gemini-test-key",
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+        classifierModel: "gemma-4-26b-a4b-it",
+        analystModel: "gemini-2.5-flash",
+        fallbackModel: "gemini-2.5-flash",
+        fetchImpl,
+        allowClassifierFallback: true
+      }
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(result.usedFallback).toBe(true);
+    expect(result.errorKind).toBe("rate_limit");
+    expect(result.errorSource).toBe("primary");
+    expect(result.classifierFallbackAttempted).toBe(false);
   });
 
   it("retries once on invalid JSON and succeeds on the reduced prompt", async () => {

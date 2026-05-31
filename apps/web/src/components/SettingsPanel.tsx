@@ -60,13 +60,52 @@ export function SettingsPanel({ settings, onChange, onSave }: SettingsPanelProps
             value={settings.scoring.minimumRooms}
           />
         </FormField>
-        <FormField htmlFor="settings-classifier-model" label="Classifier model">
+        <FormField htmlFor="settings-classifier-model" label="Primary classifier model">
           <Input
             id="settings-classifier-model"
             onChange={(event) =>
               onChange({ ...settings, runtime: { ...settings.runtime, llmClassifierModel: event.target.value } })
             }
             value={settings.runtime.llmClassifierModel}
+          />
+        </FormField>
+        <FormField label="Classifier fallback">
+          <Select
+            onValueChange={(value) =>
+              onChange({ ...settings, runtime: { ...settings.runtime, llmClassifierFallbackEnabled: value === "true" } })
+            }
+            value={settings.runtime.llmClassifierFallbackEnabled ? "true" : "false"}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="true">Enabled</SelectItem>
+              <SelectItem value="false">Disabled</SelectItem>
+            </SelectContent>
+          </Select>
+        </FormField>
+        <FormField htmlFor="settings-classifier-fallback-model" label="Fallback classifier model">
+          <Input
+            id="settings-classifier-fallback-model"
+            onChange={(event) =>
+              onChange({ ...settings, runtime: { ...settings.runtime, llmClassifierFallbackModel: event.target.value } })
+            }
+            value={settings.runtime.llmClassifierFallbackModel}
+          />
+        </FormField>
+        <FormField htmlFor="settings-classifier-fallback-min-score" label="Fallback min score">
+          <Input
+            id="settings-classifier-fallback-min-score"
+            min={0}
+            onChange={(event) =>
+              onChange({
+                ...settings,
+                runtime: { ...settings.runtime, llmClassifierFallbackMinScore: Number(event.target.value) }
+              })
+            }
+            type="number"
+            value={settings.runtime.llmClassifierFallbackMinScore}
           />
         </FormField>
         <FormField htmlFor="settings-analyst-model" label="English analyst model">

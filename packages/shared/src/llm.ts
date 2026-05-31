@@ -102,6 +102,9 @@ export type ListingEligibilityContext = {
 export type ListingEligibilityDeps = LlmRuntimeDeps & {
   timeoutMs?: number;
   retryTimeoutMs?: number;
+  allowClassifierFallback?: boolean;
+  fallbackModel?: string | null;
+  fallbackTimeoutMs?: number;
 };
 
 export type EnglishAnalystDeps = LlmRuntimeDeps & {
@@ -110,9 +113,15 @@ export type EnglishAnalystDeps = LlmRuntimeDeps & {
 
 export type EligibilityClassificationResult = SemanticClassification & {
   inputFingerprint: string;
+  model: string | null;
   usedFallback: boolean;
   errorKind: LlmErrorKind | null;
+  errorSource: "primary" | "fallback" | null;
   didRetry: boolean;
+  classifierFallbackWanted: boolean;
+  classifierFallbackAttempted: boolean;
+  classifierFallbackSucceeded: boolean;
+  classifierFallbackErrorKind: LlmErrorKind | null;
 };
 
 export type EnglishAnalystGenerationResult = {
@@ -288,9 +297,18 @@ function buildClassifierPrompt(
     "Decision policy:",
     "- MATCH when the listing clearly fits the search profile and does not conflict with avoid rules.",
     "- REJECT when the listing clearly conflicts with avoid rules or is obviously a poor fit.",
-    "- UNSURE only when the text is genuinely ambiguous, contradictory, or missing critical detail.",
+    "- UNSURE when the text is ambiguous, contradictory, missing critical detail, or only has weak title/metadata evidence.",
+    "Evidence policy:",
+    "- Treat rent, rooms, size, district, and deterministic score as supporting evidence, not proof of semantic fit.",
+    "- Do not infer long-term rental, private-apartment fit, or couple suitability from metadata alone.",
+    "- If the description is empty and the deterministic score is below 80, keep UNSURE unless the title explicitly proves the rental type and no avoid-rule conflict.",
+    "- If the description is empty and the deterministic score is 80 or higher, MATCH is allowed only when the title explicitly indicates an apartment/flat/Wohnung and the core profile fields fit.",
+    "- Set LONG_TERM only when title or description explicitly indicates a normal long-term rental, indefinite lease, or no short-term/sublet constraint.",
+    "- Do not set LONG_TERM from words like apartment, flat, Wohnung, rent, rooms, price, or district alone.",
+    "- For UNSURE, use an empty flags array unless a flag is explicitly stated in the title or description.",
     `Title: ${truncatePromptText(listing.title, PROMPT_TITLE_MAX_CHARS)}`,
     `Description: ${truncatePromptText(listing.description, PROMPT_DESCRIPTION_MAX_CHARS)}`,
+    `Description present: ${listing.description?.trim() ? "yes" : "no"}`,
     `District: ${stringifyPromptValue(listing.district)}`,
     `City: ${stringifyPromptValue(listing.city)}`,
     `Search districts: ${stringifyPromptValue(settings.search.districts)}`,
@@ -311,7 +329,7 @@ function buildClassifierPrompt(
 
   if (compact) {
     return [
-      "Compact retry mode. Prefer MATCH or REJECT when evidence is adequate; reserve UNSURE for genuinely incomplete evidence.",
+      "Compact retry mode. Prefer MATCH or REJECT only when evidence is adequate; keep title-only or metadata-only listings UNSURE.",
       ...lines
     ].join("\n");
   }
@@ -530,6 +548,47 @@ function shouldRetryClassifier(error: unknown) {
   return error.kind === "http_error" && error.status != null && error.status >= 500;
 }
 
+function isRecoverableForClassifierFallback(errorKind: LlmErrorKind | null) {
+  return (
+    errorKind === "invalid_json" ||
+    errorKind === "empty_response" ||
+    errorKind === "timeout" ||
+    errorKind === "transport_error"
+  );
+}
+
+function getConfiguredClassifierFallbackModel(settings: AppSettings, deps: ListingEligibilityDeps) {
+  const fallbackModel = (deps.fallbackModel ?? settings.runtime.llmClassifierFallbackModel)?.trim();
+
+  if (!fallbackModel || fallbackModel === deps.classifierModel) {
+    return null;
+  }
+
+  return fallbackModel;
+}
+
+function shouldEscalateClassifierResult(
+  result: SemanticClassification | null,
+  errorKind: LlmErrorKind | null,
+  settings: AppSettings,
+  context: ListingEligibilityContext,
+  deps: ListingEligibilityDeps
+) {
+  if (!settings.runtime.llmClassifierFallbackEnabled || !getConfiguredClassifierFallbackModel(settings, deps)) {
+    return false;
+  }
+
+  if (context.deterministicScore < settings.runtime.llmClassifierFallbackMinScore) {
+    return false;
+  }
+
+  if (result) {
+    return result.eligibilityState === "UNSURE";
+  }
+
+  return isRecoverableForClassifierFallback(errorKind);
+}
+
 function buildClassifierUnavailableFallback(
   listing: LlmListingInput,
   settings: AppSettings,
@@ -602,6 +661,9 @@ export function buildSemanticClassificationFingerprint(
         semanticRules: settings.semanticRules,
         llmProvider: settings.runtime.llmProvider,
         classifierModel: settings.runtime.llmClassifierModel,
+        classifierFallbackEnabled: settings.runtime.llmClassifierFallbackEnabled,
+        classifierFallbackModel: settings.runtime.llmClassifierFallbackModel,
+        classifierFallbackMinScore: settings.runtime.llmClassifierFallbackMinScore,
         promptVersion: semanticClassificationPromptVersion
       })
     )
@@ -642,13 +704,15 @@ export async function classifyListingEligibility(
   const inputFingerprint = buildSemanticClassificationFingerprint(listing, settings, context);
   const timeoutMs = deps.timeoutMs ?? DEFAULT_CLASSIFIER_TIMEOUT_MS;
   const retryTimeoutMs = deps.retryTimeoutMs ?? Math.round(timeoutMs * 1.4);
+  const fallbackModel = getConfiguredClassifierFallbackModel(settings, deps);
+  const fallbackTimeoutMs = deps.fallbackTimeoutMs ?? timeoutMs;
   let didRetry = false;
 
-  async function runClassifier(compact: boolean, requestTimeoutMs: number) {
+  async function runClassifier(model: string, compact: boolean, requestTimeoutMs: number) {
     return callGeminiJson({
       apiKey: deps.apiKey,
       baseUrl: deps.baseUrl,
-      model: deps.classifierModel,
+      model,
       fetchImpl: deps.fetchImpl,
       timeoutMs: requestTimeoutMs,
       responseJsonSchema: semanticClassificationJsonSchema,
@@ -658,54 +722,154 @@ export async function classifyListingEligibility(
     });
   }
 
-  try {
-    const result = await runClassifier(false, timeoutMs);
+  async function tryClassifierFallback() {
+    if (!fallbackModel) {
+      return {
+        result: null as SemanticClassification | null,
+        errorKind: null as LlmErrorKind | null
+      };
+    }
+
+    try {
+      return {
+        result: await runClassifier(fallbackModel, false, fallbackTimeoutMs),
+        errorKind: null
+      };
+    } catch (fallbackError) {
+      return {
+        result: null,
+        errorKind: getLlmErrorKind(fallbackError)
+      };
+    }
+  }
+
+  async function buildSuccessfulResult(result: SemanticClassification, model: string, didPrimaryRetry: boolean) {
+    const classifierFallbackWanted = shouldEscalateClassifierResult(result, null, settings, context, deps);
+
+    if (classifierFallbackWanted && deps.allowClassifierFallback !== false) {
+      const fallback = await tryClassifierFallback();
+
+      if (fallback.result && fallbackModel) {
+        return {
+          ...fallback.result,
+          inputFingerprint,
+          model: fallbackModel,
+          usedFallback: false,
+          errorKind: null,
+          errorSource: null,
+          didRetry: didPrimaryRetry,
+          classifierFallbackWanted,
+          classifierFallbackAttempted: true,
+          classifierFallbackSucceeded: true,
+          classifierFallbackErrorKind: null
+        };
+      }
+
+      return {
+        ...result,
+        inputFingerprint,
+        model,
+        usedFallback: false,
+        errorKind: null,
+        errorSource: null,
+        didRetry: didPrimaryRetry,
+        classifierFallbackWanted,
+        classifierFallbackAttempted: true,
+        classifierFallbackSucceeded: false,
+        classifierFallbackErrorKind: fallback.errorKind
+      };
+    }
 
     return {
       ...result,
       inputFingerprint,
+      model,
       usedFallback: false,
       errorKind: null,
-      didRetry: false
+      errorSource: null,
+      didRetry: didPrimaryRetry,
+      classifierFallbackWanted,
+      classifierFallbackAttempted: false,
+      classifierFallbackSucceeded: false,
+      classifierFallbackErrorKind: null
     };
+  }
+
+  async function buildUnavailableResult(primaryErrorKind: LlmErrorKind) {
+    const classifierFallbackWanted = shouldEscalateClassifierResult(null, primaryErrorKind, settings, context, deps);
+
+    if (classifierFallbackWanted && deps.allowClassifierFallback !== false) {
+      const fallback = await tryClassifierFallback();
+
+      if (fallback.result && fallbackModel) {
+        return {
+          ...fallback.result,
+          inputFingerprint,
+          model: fallbackModel,
+          usedFallback: false,
+          errorKind: null,
+          errorSource: null,
+          didRetry,
+          classifierFallbackWanted,
+          classifierFallbackAttempted: true,
+          classifierFallbackSucceeded: true,
+          classifierFallbackErrorKind: null
+        };
+      }
+
+      const errorKind = fallback.errorKind ?? primaryErrorKind;
+      const deterministicFallback = buildClassifierUnavailableFallback(listing, settings, context, errorKind);
+
+      return {
+        ...deterministicFallback,
+        inputFingerprint,
+        model: null,
+        usedFallback: true,
+        errorKind,
+        errorSource: fallback.errorKind ? "fallback" as const : "primary" as const,
+        didRetry,
+        classifierFallbackWanted,
+        classifierFallbackAttempted: true,
+        classifierFallbackSucceeded: false,
+        classifierFallbackErrorKind: fallback.errorKind
+      };
+    }
+
+    const fallback = buildClassifierUnavailableFallback(listing, settings, context, primaryErrorKind);
+
+    return {
+      ...fallback,
+      inputFingerprint,
+      model: null,
+      usedFallback: true,
+      errorKind: primaryErrorKind,
+      errorSource: "primary" as const,
+      didRetry,
+      classifierFallbackWanted,
+      classifierFallbackAttempted: false,
+      classifierFallbackSucceeded: false,
+      classifierFallbackErrorKind: null
+    };
+  }
+
+  try {
+    const result = await runClassifier(deps.classifierModel, false, timeoutMs);
+
+    return buildSuccessfulResult(result, deps.classifierModel, false);
   } catch (error) {
     if (shouldRetryClassifier(error)) {
       didRetry = true;
 
       try {
-        const result = await runClassifier(true, retryTimeoutMs);
+        const result = await runClassifier(deps.classifierModel, true, retryTimeoutMs);
 
-        return {
-          ...result,
-          inputFingerprint,
-          usedFallback: false,
-          errorKind: null,
-          didRetry
-        };
+        return buildSuccessfulResult(result, deps.classifierModel, didRetry);
       } catch (retryError) {
-        const errorKind = getLlmErrorKind(retryError);
-        const fallback = buildClassifierUnavailableFallback(listing, settings, context, errorKind);
-
-        return {
-          ...fallback,
-          inputFingerprint,
-          usedFallback: true,
-          errorKind,
-          didRetry
-        };
+        return buildUnavailableResult(getLlmErrorKind(retryError));
       }
     }
 
-    const errorKind = getLlmErrorKind(error);
-    const fallback = buildClassifierUnavailableFallback(listing, settings, context, errorKind);
-
-    return {
-      ...fallback,
-      inputFingerprint,
-      usedFallback: true,
-      errorKind,
-      didRetry
-    };
+    return buildUnavailableResult(getLlmErrorKind(error));
   }
 }
 

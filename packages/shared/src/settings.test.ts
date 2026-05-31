@@ -3,8 +3,13 @@ import { describe, expect, it } from "vitest";
 import { appSettingsSchema } from "./settings";
 
 describe("appSettingsSchema", () => {
-  it("defaults the classifier to the standard flash model", () => {
-    expect(appSettingsSchema.parse({ ...defaultSettingsInput(), runtime: {} }).runtime.llmClassifierModel).toBe("gemini-2.5-flash");
+  it("defaults the classifier to Gemma with Flash fallback", () => {
+    const runtime = appSettingsSchema.parse({ ...defaultSettingsInput(), runtime: {} }).runtime;
+
+    expect(runtime.llmClassifierModel).toBe("gemma-4-26b-a4b-it");
+    expect(runtime.llmClassifierFallbackEnabled).toBe(true);
+    expect(runtime.llmClassifierFallbackModel).toBe("gemini-2.5-flash");
+    expect(runtime.llmClassifierFallbackMinScore).toBe(80);
   });
 
   it("maps legacy Ollama runtime keys to Gemini runtime settings", () => {
@@ -24,6 +29,9 @@ describe("appSettingsSchema", () => {
       enableSemanticClassifier: true,
       enableLlmEnrichment: true,
       llmClassifierModel: "gemma4:latest",
+      llmClassifierFallbackEnabled: true,
+      llmClassifierFallbackModel: "gemini-2.5-flash",
+      llmClassifierFallbackMinScore: 80,
       llmAnalystModel: "translategemma:4b",
       scrapeWithFixtures: false
     });

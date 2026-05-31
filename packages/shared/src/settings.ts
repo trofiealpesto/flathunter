@@ -1,12 +1,20 @@
 import { z } from "zod";
 import { officeLocationSchema } from "./geo";
 
+export const defaultClassifierPrimaryModel = "gemma-4-26b-a4b-it";
+export const defaultClassifierFallbackModel = "gemini-2.5-flash";
+export const defaultClassifierFallbackMinScore = 80;
+export const defaultAnalystModel = "gemini-2.5-flash";
+
 const runtimeSettingsObjectSchema = z.object({
   llmProvider: z.literal("gemini").default("gemini"),
   enableSemanticClassifier: z.boolean().default(true),
   enableLlmEnrichment: z.boolean().default(true),
-  llmClassifierModel: z.string().trim().min(1).default("gemini-2.5-flash"),
-  llmAnalystModel: z.string().trim().min(1).default("gemini-2.5-flash"),
+  llmClassifierModel: z.string().trim().min(1).default(defaultClassifierPrimaryModel),
+  llmClassifierFallbackEnabled: z.boolean().default(true),
+  llmClassifierFallbackModel: z.string().trim().min(1).default(defaultClassifierFallbackModel),
+  llmClassifierFallbackMinScore: z.number().int().nonnegative().default(defaultClassifierFallbackMinScore),
+  llmAnalystModel: z.string().trim().min(1).default(defaultAnalystModel),
   scrapeWithFixtures: z.boolean().default(false)
 });
 const defaultRuntimeSettings = runtimeSettingsObjectSchema.parse({});
@@ -20,12 +28,12 @@ const runtimeSettingsSchema = z.preprocess((value) => {
   const llmClassifierModel =
     record.llmClassifierModel ??
     record.ollamaModel ??
-    "gemini-2.5-flash";
+    defaultClassifierPrimaryModel;
   const llmAnalystModel =
     record.llmAnalystModel ??
     record.ollamaTranslationModel ??
     record.ollamaModel ??
-    "gemini-2.5-flash";
+    defaultAnalystModel;
 
   return {
     ...record,
@@ -101,8 +109,11 @@ export const defaultAppSettings: AppSettings = {
     llmProvider: "gemini",
     enableSemanticClassifier: true,
     enableLlmEnrichment: true,
-    llmClassifierModel: "gemini-2.5-flash",
-    llmAnalystModel: "gemini-2.5-flash",
+    llmClassifierModel: defaultClassifierPrimaryModel,
+    llmClassifierFallbackEnabled: true,
+    llmClassifierFallbackModel: defaultClassifierFallbackModel,
+    llmClassifierFallbackMinScore: defaultClassifierFallbackMinScore,
+    llmAnalystModel: defaultAnalystModel,
     scrapeWithFixtures: false
   },
   profile: {

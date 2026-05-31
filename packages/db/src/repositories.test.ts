@@ -20,6 +20,7 @@ import {
   listPortalSources,
   markPortalRun,
   patchSettings,
+  updateListingEvaluation,
   putPortalCredentials,
   updateListingLlmState,
   upsertPortalSessionState,
@@ -131,7 +132,7 @@ describe("repositories", { timeout: 20_000 }, () => {
   it("computes dashboard analytics from listings", async () => {
     const db = await createTestDb();
 
-    await upsertListing(db, {
+    const firstListing = await upsertListing(db, {
       portal: "IMMOWELT",
       portalListingId: "dashboard-1",
       url: "https://www.immowelt.de/expose/dashboard-1",
@@ -156,7 +157,7 @@ describe("repositories", { timeout: 20_000 }, () => {
       rawPayload: null
     });
 
-    await upsertListing(db, {
+    const secondListing = await upsertListing(db, {
       portal: "IMMOWELT",
       portalListingId: "dashboard-2",
       url: "https://www.immowelt.de/expose/dashboard-2",
@@ -194,6 +195,26 @@ describe("repositories", { timeout: 20_000 }, () => {
         }
       }
     });
+    await updateListingEvaluation(db, firstListing.id, {
+      score: 82,
+      eligibilityState: "MATCH",
+      eligibilityReason: "Gemma cached match",
+      analysisFlags: [],
+      semanticFlags: ["LONG_TERM"],
+      semanticModel: "gemma-4-26b-a4b-it",
+      semanticInputFingerprint: "fingerprint-gemma",
+      semanticUpdatedAt: new Date()
+    });
+    await updateListingEvaluation(db, secondListing.id, {
+      score: 88,
+      eligibilityState: "MATCH",
+      eligibilityReason: "Flash fallback cached match",
+      analysisFlags: [],
+      semanticFlags: ["LONG_TERM"],
+      semanticModel: "gemini-2.5-flash",
+      semanticInputFingerprint: "fingerprint-flash",
+      semanticUpdatedAt: new Date()
+    });
 
     const stats = await getDashboardStats(db);
     const serializedListings = await listListings(db, {});
@@ -208,7 +229,17 @@ describe("repositories", { timeout: 20_000 }, () => {
     expect(stats.rentSizePoints).toHaveLength(2);
     expect(stats.llmHealth).toEqual({
       providerConfigured: true,
-      classifierReady: 0,
+      classifierReady: 2,
+      classifierModelBreakdown: [
+        {
+          model: "gemma-4-26b-a4b-it",
+          count: 1
+        },
+        {
+          model: "gemini-2.5-flash",
+          count: 1
+        }
+      ],
       classifierError: 0,
       classifierErrorBreakdown: [],
       analystReady: 0,

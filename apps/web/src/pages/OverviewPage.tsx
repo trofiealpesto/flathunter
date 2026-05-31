@@ -402,6 +402,19 @@ export function OverviewPage({ dashboardStats, officeLocation, sources, loading,
             ]}
             total={dashboardStats.totals.listings}
           />
+          {dashboardStats.llmHealth.classifierModelBreakdown.length > 0 ? (
+            <div className="mt-4 border-t pt-3">
+              <div className="mb-2 text-xs font-medium text-muted-foreground">Classifier models</div>
+              <CompactMetricBreakdown
+                items={dashboardStats.llmHealth.classifierModelBreakdown.map((item) => ({
+                  label: item.model,
+                  count: item.count,
+                  tone: item.model.includes("flash") ? "warning" : "success"
+                }))}
+                total={dashboardStats.llmHealth.classifierReady}
+              />
+            </div>
+          ) : null}
         </SurfaceCard>
 
         <SurfaceCard className="lg:col-span-4" subtitle="Populated portals only. Click a row to focus the overview." title="Portal mix">

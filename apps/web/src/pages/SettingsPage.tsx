@@ -448,6 +448,11 @@ export function SettingsPage({
                     description: "Translate and summarize listings with the English analyst pipeline."
                   },
                   {
+                    key: "llmClassifierFallbackEnabled",
+                    label: "Enable classifier fallback",
+                    description: "Escalate promising Gemma UNSURE results to Flash within the worker budget."
+                  },
+                  {
                     key: "scrapeWithFixtures",
                     label: "Use fixtures",
                     description: "Use only for parser debugging; live scraping is the default local mode."
@@ -477,9 +482,9 @@ export function SettingsPage({
                   </div>
                 ))}
                 <FormField
-                  description="Recommended classifier default: gemini-2.5-flash."
+                  description="Primary quota-friendly classifier default: gemma-4-26b-a4b-it."
                   htmlFor="runtime-llm-classifier-model"
-                  label="Classifier model"
+                  label="Primary classifier model"
                 >
                   <Input
                     id="runtime-llm-classifier-model"
@@ -492,7 +497,48 @@ export function SettingsPage({
                   />
                 </FormField>
                 <FormField
-                  description="Recommended on-demand English analyst default: gemini-2.5-flash."
+                  description="Premium fallback default: gemini-2.5-flash."
+                  htmlFor="runtime-llm-classifier-fallback-model"
+                  label="Fallback classifier model"
+                >
+                  <Input
+                    id="runtime-llm-classifier-fallback-model"
+                    onChange={(event) =>
+                      setDraft((current) =>
+                        current
+                          ? { ...current, runtime: { ...current.runtime, llmClassifierFallbackModel: event.target.value } }
+                          : current
+                      )
+                    }
+                    value={draft.runtime.llmClassifierFallbackModel}
+                  />
+                </FormField>
+                <FormField
+                  description="Flash fallback only runs for Gemma UNSURE or recoverable errors at or above this score."
+                  htmlFor="runtime-llm-classifier-fallback-min-score"
+                  label="Fallback min score"
+                >
+                  <Input
+                    id="runtime-llm-classifier-fallback-min-score"
+                    min={0}
+                    onChange={(event) => {
+                      const value = Number(event.target.value);
+                      if (Number.isNaN(value)) {
+                        return;
+                      }
+
+                      setDraft((current) =>
+                        current
+                          ? { ...current, runtime: { ...current.runtime, llmClassifierFallbackMinScore: value } }
+                          : current
+                      );
+                    }}
+                    type="number"
+                    value={draft.runtime.llmClassifierFallbackMinScore}
+                  />
+                </FormField>
+                <FormField
+                  description="Quality default: gemini-2.5-flash. Use gemma-4-26b-a4b-it only after benchmark checks."
                   htmlFor="runtime-llm-analyst-model"
                   label="English analyst model"
                 >

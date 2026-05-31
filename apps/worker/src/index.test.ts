@@ -116,6 +116,7 @@ describe("runWorkerOnce", () => {
       inputFingerprint: "test-fingerprint",
       usedFallback: true,
       errorKind: "timeout",
+      errorSource: "primary",
       didRetry: true
     });
     mocks.buildSemanticClassificationFingerprint.mockReturnValue("test-fingerprint");
@@ -426,7 +427,7 @@ describe("runWorkerOnce", () => {
     expect(mocks.releaseAdvisoryPortalLock).toHaveBeenCalledTimes(1);
   });
 
-  it("reuses cached llm analysis when the fingerprint and model still match", async () => {
+  it("reuses cached llm analysis when the fingerprint matches even if Flash produced the result", async () => {
     mocks.listEnabledPortalSourcesDue.mockResolvedValue([]);
     mocks.getSettings.mockResolvedValue({
       runtime: {
@@ -434,7 +435,10 @@ describe("runWorkerOnce", () => {
         enableSemanticClassifier: true,
         enableLlmEnrichment: true,
         llmProvider: "gemini",
-        llmClassifierModel: "gemini-2.5-flash-lite",
+        llmClassifierModel: "gemma-4-26b-a4b-it",
+        llmClassifierFallbackEnabled: true,
+        llmClassifierFallbackModel: "gemini-2.5-flash",
+        llmClassifierFallbackMinScore: 80,
         llmAnalystModel: "gemini-2.5-flash"
       }
     });
@@ -446,7 +450,7 @@ describe("runWorkerOnce", () => {
         eligibilityState: "MATCH",
         eligibilityReason: "cached analyst verdict",
         semanticFlags: ["balcony_mentioned", "elevator_mentioned"],
-        semanticModel: "gemini-2.5-flash-lite",
+        semanticModel: "gemini-2.5-flash",
         semanticInputFingerprint: "test-fingerprint",
         llmLastErrorKind: null,
         llmAnalysis: {
@@ -497,7 +501,7 @@ describe("runWorkerOnce", () => {
         eligibilityState: "MATCH",
         eligibilityReason: "cached analyst verdict",
         semanticFlags: ["balcony_mentioned", "elevator_mentioned"],
-        semanticModel: "gemini-2.5-flash-lite"
+        semanticModel: "gemini-2.5-flash"
       })
     );
   });
@@ -545,6 +549,7 @@ describe("runWorkerOnce", () => {
       inputFingerprint: "test-fingerprint",
       usedFallback: true,
       errorKind: "rate_limit",
+      errorSource: "primary",
       didRetry: true
     });
 
@@ -635,6 +640,7 @@ describe("runWorkerOnce", () => {
       inputFingerprint: "test-fingerprint",
       usedFallback: true,
       errorKind: "rate_limit",
+      errorSource: "primary",
       didRetry: false
     });
 
@@ -766,6 +772,272 @@ describe("runWorkerOnce", () => {
       expect.objectContaining({
         eligibilityState: "UNSURE",
         eligibilityReason: "needs review"
+      })
+    );
+  });
+
+  it("limits Flash fallback escalations per worker run", async () => {
+    mocks.listEnabledPortalSourcesDue.mockResolvedValue([]);
+    mocks.getSettings.mockResolvedValue({
+      runtime: {
+        scrapeWithFixtures: false,
+        enableSemanticClassifier: true,
+        enableLlmEnrichment: true,
+        llmProvider: "gemini",
+        llmClassifierModel: "gemma-4-26b-a4b-it",
+        llmClassifierFallbackEnabled: true,
+        llmClassifierFallbackModel: "gemini-2.5-flash",
+        llmClassifierFallbackMinScore: 80,
+        llmAnalystModel: "gemini-2.5-flash"
+      }
+    });
+    mocks.listListingsForEvaluation.mockResolvedValue([
+      {
+        id: "listing-1",
+        title: "First flat",
+        description: "Large apartment in Mitte",
+        eligibilityState: "UNSURE",
+        eligibilityReason: null,
+        semanticFlags: [],
+        semanticModel: null,
+        semanticInputFingerprint: null,
+        semanticLastErrorKind: null,
+        semanticLastErrorAt: null,
+        llmLastErrorKind: null,
+        llmAnalysis: null,
+        llmAnalysisStatus: "missing",
+        analysisFlags: []
+      },
+      {
+        id: "listing-2",
+        title: "Second flat",
+        description: "Large apartment in Mitte",
+        eligibilityState: "UNSURE",
+        eligibilityReason: null,
+        semanticFlags: [],
+        semanticModel: null,
+        semanticInputFingerprint: null,
+        semanticLastErrorKind: null,
+        semanticLastErrorAt: null,
+        llmLastErrorKind: null,
+        llmAnalysis: null,
+        llmAnalysisStatus: "missing",
+        analysisFlags: []
+      }
+    ]);
+    mocks.evaluateListingDeterministically.mockReturnValue({
+      score: 86,
+      eligibilityState: "UNSURE",
+      reason: "needs review",
+      analysisFlags: [],
+      shouldRunSemanticClassifier: true
+    });
+    mocks.classifyListingEligibility
+      .mockResolvedValueOnce({
+        eligibilityState: "MATCH",
+        reason: "Flash confirmed the match",
+        flags: ["LONG_TERM"],
+        inputFingerprint: "test-fingerprint",
+        model: "gemini-2.5-flash",
+        usedFallback: false,
+        errorKind: null,
+        errorSource: null,
+        didRetry: false,
+        classifierFallbackWanted: true,
+        classifierFallbackAttempted: true,
+        classifierFallbackSucceeded: true,
+        classifierFallbackErrorKind: null
+      })
+      .mockResolvedValueOnce({
+        eligibilityState: "UNSURE",
+        reason: "Gemma stayed unsure without fallback budget",
+        flags: [],
+        inputFingerprint: "test-fingerprint",
+        model: "gemma-4-26b-a4b-it",
+        usedFallback: false,
+        errorKind: null,
+        errorSource: null,
+        didRetry: false,
+        classifierFallbackWanted: true,
+        classifierFallbackAttempted: false,
+        classifierFallbackSucceeded: false,
+        classifierFallbackErrorKind: null
+      });
+
+    const { runWorkerOnce } = await import("./index");
+
+    await runWorkerOnce({
+      envInput: {
+        NODE_ENV: "test",
+        DATABASE_URL: "postgres://unused",
+        PORTAL_SECRETS_KEY: "portal-secrets-key-for-tests",
+        GEMINI_API_KEY: "gemini-test-key",
+        GEMINI_API_BASE_URL: "https://generativelanguage.googleapis.com/v1beta",
+        GEMINI_CLASSIFIER_FALLBACK_MAX_PER_RUN: "1",
+        GEMINI_CLASSIFIER_MIN_DELAY_MS: "0",
+        IMMOWELT_SEARCH_URL: "https://www.immowelt.de/liste/berlin/wohnungen/mieten",
+        IMMOWELT_ENABLE_LIVE_BROWSER: "true",
+        WORKER_DEV_INTERVAL_MS: "300000"
+      }
+    });
+
+    expect(mocks.classifyListingEligibility).toHaveBeenCalledTimes(2);
+    expect(mocks.classifyListingEligibility.mock.calls[0]?.[3]).toEqual(
+      expect.objectContaining({
+        allowClassifierFallback: true
+      })
+    );
+    expect(mocks.classifyListingEligibility.mock.calls[1]?.[3]).toEqual(
+      expect.objectContaining({
+        allowClassifierFallback: false
+      })
+    );
+    expect(mocks.updateListingEvaluation).toHaveBeenCalledWith(
+      db,
+      "listing-1",
+      expect.objectContaining({
+        eligibilityState: "MATCH",
+        semanticModel: "gemini-2.5-flash",
+        semanticInputFingerprint: "test-fingerprint"
+      })
+    );
+    expect(mocks.updateListingEvaluation).toHaveBeenCalledWith(
+      db,
+      "listing-2",
+      expect.objectContaining({
+        eligibilityState: "UNSURE",
+        semanticModel: null,
+        semanticInputFingerprint: null
+      })
+    );
+  });
+
+  it("continues primary Gemma calls after Flash fallback rate limits", async () => {
+    mocks.listEnabledPortalSourcesDue.mockResolvedValue([]);
+    mocks.getSettings.mockResolvedValue({
+      runtime: {
+        scrapeWithFixtures: false,
+        enableSemanticClassifier: true,
+        enableLlmEnrichment: true,
+        llmProvider: "gemini",
+        llmClassifierModel: "gemma-4-26b-a4b-it",
+        llmClassifierFallbackEnabled: true,
+        llmClassifierFallbackModel: "gemini-2.5-flash",
+        llmClassifierFallbackMinScore: 80,
+        llmAnalystModel: "gemini-2.5-flash"
+      }
+    });
+    mocks.listListingsForEvaluation.mockResolvedValue([
+      {
+        id: "listing-1",
+        title: "First flat",
+        description: "Large apartment in Mitte",
+        eligibilityState: "UNSURE",
+        eligibilityReason: null,
+        semanticFlags: [],
+        semanticModel: null,
+        semanticInputFingerprint: null,
+        semanticLastErrorKind: null,
+        semanticLastErrorAt: null,
+        llmLastErrorKind: null,
+        llmAnalysis: null,
+        llmAnalysisStatus: "missing",
+        analysisFlags: []
+      },
+      {
+        id: "listing-2",
+        title: "Second flat",
+        description: "Large apartment in Mitte",
+        eligibilityState: "UNSURE",
+        eligibilityReason: null,
+        semanticFlags: [],
+        semanticModel: null,
+        semanticInputFingerprint: null,
+        semanticLastErrorKind: null,
+        semanticLastErrorAt: null,
+        llmLastErrorKind: null,
+        llmAnalysis: null,
+        llmAnalysisStatus: "missing",
+        analysisFlags: []
+      }
+    ]);
+    mocks.evaluateListingDeterministically.mockReturnValue({
+      score: 86,
+      eligibilityState: "UNSURE",
+      reason: "needs review",
+      analysisFlags: [],
+      shouldRunSemanticClassifier: true
+    });
+    mocks.classifyListingEligibility
+      .mockResolvedValueOnce({
+        eligibilityState: "UNSURE",
+        reason: "Gemma result kept after Flash rate limit",
+        flags: [],
+        inputFingerprint: "test-fingerprint",
+        model: "gemma-4-26b-a4b-it",
+        usedFallback: false,
+        errorKind: null,
+        errorSource: null,
+        didRetry: false,
+        classifierFallbackWanted: true,
+        classifierFallbackAttempted: true,
+        classifierFallbackSucceeded: false,
+        classifierFallbackErrorKind: "rate_limit"
+      })
+      .mockResolvedValueOnce({
+        eligibilityState: "MATCH",
+        reason: "Gemma confirmed the next listing",
+        flags: ["LONG_TERM"],
+        inputFingerprint: "test-fingerprint",
+        model: "gemma-4-26b-a4b-it",
+        usedFallback: false,
+        errorKind: null,
+        errorSource: null,
+        didRetry: false,
+        classifierFallbackWanted: false,
+        classifierFallbackAttempted: false,
+        classifierFallbackSucceeded: false,
+        classifierFallbackErrorKind: null
+      });
+
+    const { runWorkerOnce } = await import("./index");
+
+    await runWorkerOnce({
+      envInput: {
+        NODE_ENV: "test",
+        DATABASE_URL: "postgres://unused",
+        PORTAL_SECRETS_KEY: "portal-secrets-key-for-tests",
+        GEMINI_API_KEY: "gemini-test-key",
+        GEMINI_API_BASE_URL: "https://generativelanguage.googleapis.com/v1beta",
+        GEMINI_CLASSIFIER_FALLBACK_MAX_PER_RUN: "2",
+        GEMINI_CLASSIFIER_MIN_DELAY_MS: "0",
+        IMMOWELT_SEARCH_URL: "https://www.immowelt.de/liste/berlin/wohnungen/mieten",
+        IMMOWELT_ENABLE_LIVE_BROWSER: "true",
+        WORKER_DEV_INTERVAL_MS: "300000"
+      }
+    });
+
+    expect(mocks.classifyListingEligibility).toHaveBeenCalledTimes(2);
+    expect(mocks.classifyListingEligibility.mock.calls[1]?.[3]).toEqual(
+      expect.objectContaining({
+        allowClassifierFallback: false
+      })
+    );
+    expect(mocks.updateListingEvaluation).toHaveBeenCalledWith(
+      db,
+      "listing-1",
+      expect.objectContaining({
+        semanticLastErrorKind: null,
+        semanticModel: "gemma-4-26b-a4b-it",
+        semanticInputFingerprint: "test-fingerprint"
+      })
+    );
+    expect(mocks.updateListingEvaluation).toHaveBeenCalledWith(
+      db,
+      "listing-2",
+      expect.objectContaining({
+        eligibilityState: "MATCH",
+        semanticModel: "gemma-4-26b-a4b-it"
       })
     );
   });

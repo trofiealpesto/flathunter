@@ -38,6 +38,11 @@ const benchmarkConfigs: BenchmarkConfig[] = [
     id: "flash-only",
     classifierModel: "gemini-2.5-flash",
     analystModel: "gemini-2.5-flash"
+  },
+  {
+    id: "gemma-api-26b",
+    classifierModel: "gemma-4-26b-a4b-it",
+    analystModel: "gemma-4-26b-a4b-it"
   }
 ];
 
@@ -71,13 +76,22 @@ async function runCase(
   baseUrl: string,
   timeoutMs: number
 ): Promise<CaseResult> {
-  const deterministic = evaluateListingDeterministically(benchCase.listing, defaultAppSettings);
+  const settings = {
+    ...defaultAppSettings,
+    runtime: {
+      ...defaultAppSettings.runtime,
+      llmClassifierModel: config.classifierModel,
+      llmClassifierFallbackEnabled: false,
+      llmAnalystModel: config.analystModel
+    }
+  };
+  const deterministic = evaluateListingDeterministically(benchCase.listing, settings);
   const classifierStart = performance.now();
 
   try {
     const classification = await classifyListingEligibility(
       benchCase.listing,
-      defaultAppSettings,
+      settings,
       {
         deterministicScore: deterministic.score,
         deterministicReason: deterministic.reason,
@@ -90,13 +104,14 @@ async function runCase(
         analystModel: config.analystModel,
         fetchImpl: fetch,
         timeoutMs,
-        retryTimeoutMs: Math.round(timeoutMs * 1.25)
+        retryTimeoutMs: Math.round(timeoutMs * 1.25),
+        allowClassifierFallback: false
       }
     );
     const classifierLatencyMs = Math.round(performance.now() - classifierStart);
 
     const analystStart = performance.now();
-    const analysis = await generateListingEnglishAnalyst(benchCase.listing, defaultAppSettings, {
+    const analysis = await generateListingEnglishAnalyst(benchCase.listing, settings, {
       apiKey,
       baseUrl,
       classifierModel: config.classifierModel,

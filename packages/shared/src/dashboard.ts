@@ -84,9 +84,15 @@ export const llmErrorBreakdownItemSchema = z.object({
   count: z.number().int().nonnegative()
 });
 
+export const llmModelBreakdownItemSchema = z.object({
+  model: z.string().trim().min(1),
+  count: z.number().int().nonnegative()
+});
+
 export const llmHealthSchema = z.object({
   providerConfigured: z.boolean(),
   classifierReady: z.number().int().nonnegative(),
+  classifierModelBreakdown: z.array(llmModelBreakdownItemSchema),
   classifierError: z.number().int().nonnegative(),
   classifierErrorBreakdown: z.array(llmErrorBreakdownItemSchema),
   analystReady: z.number().int().nonnegative(),
@@ -122,5 +128,6 @@ export type RentSizePoint = z.infer<typeof rentSizePointSchema>;
 export type GeoPrecision = z.infer<typeof geoPrecisionSchema>;
 export type GeoPrecisionBreakdownItem = z.infer<typeof geoPrecisionBreakdownItemSchema>;
 export type LlmErrorBreakdownItem = z.infer<typeof llmErrorBreakdownItemSchema>;
+export type LlmModelBreakdownItem = z.infer<typeof llmModelBreakdownItemSchema>;
 export type LlmHealth = z.infer<typeof llmHealthSchema>;
 export type DashboardStats = z.infer<typeof dashboardStatsSchema>;

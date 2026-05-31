@@ -100,9 +100,11 @@ make prod-deploy PROD_SCHEME=https PROD_HOST=flathunter.example.com PROD_PORT=44
 - Local development is `live-first` by default.
 - `IMMOWELT_ENABLE_LIVE_BROWSER=true` enables the Playwright scraper.
 - `WORKER_DEV_INTERVAL_MS=300000` runs the local worker loop every 5 minutes.
-- `GEMINI_CLASSIFIER_MAX_PER_RUN=4` keeps semantic classification on a slow, quota-friendly queue.
+- `GEMINI_CLASSIFIER_MAX_PER_RUN=4` keeps primary semantic classification on a slow, quota-friendly queue.
+- `GEMINI_CLASSIFIER_FALLBACK_MAX_PER_RUN=1` limits automatic Flash escalations after Gemma returns high-value `UNSURE` results.
 - `GEMINI_CLASSIFIER_MIN_DELAY_MS=8000` spaces classifier requests inside a worker run.
 - `GEMINI_CLASSIFIER_RETRY_COOLDOWN_MS=1800000` avoids retrying recent Gemini throttling errors immediately.
+- The classifier default is `gemma-4-26b-a4b-it` with selective `gemini-2.5-flash` fallback for promising uncertain cases. Test Gemma locally with `LLM_BENCH_CONFIGS=gemma-api-26b node --env-file=.env --import tsx apps/worker/src/benchmarks/llm.ts`.
 - Fixture mode is still available from `Settings`, but it is no longer the default.
 
 ## Multi-source backend
