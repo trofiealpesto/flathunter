@@ -779,6 +779,7 @@ export async function listListingsForEvaluation(db: Database) {
     ...serializeListing(row),
     semanticInputFingerprint: row.semanticInputFingerprint,
     semanticLastErrorKind: parseLlmErrorKind(row.semanticLastErrorKind),
+    semanticLastErrorAt: row.semanticLastErrorAt,
     llmLastErrorKind: parseLlmErrorKind(row.llmLastErrorKind)
   }));
 }

@@ -122,6 +122,7 @@ Recommended on a free or small Oracle VM:
 - use `gemini-2.5-flash` for the classifier and `gemini-2.5-flash` for the on-demand analyst
 - set `GEMINI_API_KEY` instead of running a local model daemon
 - keep `WORKER_DEV_INTERVAL_MS=300000` or slower
+- keep `GEMINI_CLASSIFIER_MAX_PER_RUN=4` and `GEMINI_CLASSIFIER_MIN_DELAY_MS=8000` unless your Gemini quota is higher
 - use `SCRAPER_PROXY_URL` only if you actually have a proxy endpoint
 
 ## Manual source auth on Oracle

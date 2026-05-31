@@ -33,7 +33,34 @@ import type { SourceCredentials, SourceScrapeResult, SourceSessionState } from "
 type RunWorkerOptions = {
   envInput?: NodeJS.ProcessEnv;
   fetchImpl?: typeof fetch;
+  sleepImpl?: (ms: number) => Promise<void>;
 };
+
+const retryableClassifierErrors = new Set(["rate_limit", "timeout", "transport_error", "http_error", "auth_error"]);
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function isClassifierCooldownActive({
+  errorKind,
+  errorAt,
+  cooldownMs,
+  now
+}: {
+  errorKind: string | null | undefined;
+  errorAt: Date | null | undefined;
+  cooldownMs: number;
+  now: Date;
+}) {
+  if (!errorKind || !errorAt || cooldownMs <= 0 || !retryableClassifierErrors.has(errorKind)) {
+    return false;
+  }
+
+  return now.getTime() - errorAt.getTime() < cooldownMs;
+}
 
 function deriveSourceRunStatus(result: SourceScrapeResult, upsertedCount: number): SourceRunStatus {
   if (result.authStatus === "challenge_required" || result.authStatus === "auth_failed") {
@@ -80,16 +107,20 @@ function formatSourceRunMessage(result: SourceScrapeResult, status: SourceRunSta
 async function evaluateReviewQueue({
   db,
   env,
-  fetchImpl
+  fetchImpl,
+  sleepImpl
 }: {
   db: ReturnType<typeof connectDb>["db"];
   env: ReturnType<typeof readWorkerEnv>;
   fetchImpl: typeof fetch;
+  sleepImpl: (ms: number) => Promise<void>;
 }) {
   const settings = await getSettings(db);
   const candidates = await listListingsForEvaluation(db);
   const semanticClassifierConfigured = Boolean(env.GEMINI_API_KEY?.trim());
   let stopSemanticClassifierForRun = !semanticClassifierConfigured;
+  let semanticClassifierCalls = 0;
+  let lastSemanticClassifierCallAt = 0;
 
   for (const candidate of candidates) {
     const deterministic = evaluateListingDeterministically(candidate, settings);
@@ -122,7 +153,33 @@ async function evaluateReviewQueue({
     let semanticLastErrorKind = undefined;
     let semanticLastErrorAt = undefined;
 
-    if (semanticClassifierEnabled && !canReuseCachedClassification && !stopSemanticClassifierForRun) {
+    const hasClassifierBudget = semanticClassifierCalls < env.GEMINI_CLASSIFIER_MAX_PER_RUN;
+    const isInClassifierCooldown = isClassifierCooldownActive({
+      errorKind: candidate.semanticLastErrorKind,
+      errorAt: candidate.semanticLastErrorAt,
+      cooldownMs: env.GEMINI_CLASSIFIER_RETRY_COOLDOWN_MS,
+      now: new Date()
+    });
+    const shouldCallSemanticClassifier =
+      semanticClassifierEnabled &&
+      !canReuseCachedClassification &&
+      !stopSemanticClassifierForRun &&
+      hasClassifierBudget &&
+      !isInClassifierCooldown;
+
+    if (shouldCallSemanticClassifier) {
+      const elapsedSinceLastCallMs = Date.now() - lastSemanticClassifierCallAt;
+      const waitMs =
+        semanticClassifierCalls > 0
+          ? Math.max(0, env.GEMINI_CLASSIFIER_MIN_DELAY_MS - elapsedSinceLastCallMs)
+          : 0;
+
+      if (waitMs > 0) {
+        await sleepImpl(waitMs);
+      }
+
+      semanticClassifierCalls += 1;
+      lastSemanticClassifierCallAt = Date.now();
       const timeouts = getRecommendedLlmTimeoutProfile(
         settings.runtime.llmClassifierModel,
         settings.runtime.llmAnalystModel
@@ -344,7 +401,7 @@ async function runPortalBatch({
   }
 }
 
-export async function runWorkerOnce({ envInput, fetchImpl = fetch }: RunWorkerOptions = {}) {
+export async function runWorkerOnce({ envInput, fetchImpl = fetch, sleepImpl = sleep }: RunWorkerOptions = {}) {
   const env = readWorkerEnv(envInput);
   const { db, pool } = connectDb(env.DATABASE_URL);
 
@@ -380,7 +437,8 @@ export async function runWorkerOnce({ envInput, fetchImpl = fetch }: RunWorkerOp
     const evaluated = await evaluateReviewQueue({
       db,
       env,
-      fetchImpl
+      fetchImpl,
+      sleepImpl
     });
 
     log("worker completed", {
