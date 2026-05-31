@@ -31,7 +31,7 @@ const benchmarkConfigs: BenchmarkConfig[] = [
   },
   {
     id: "recommended-mix",
-    classifierModel: "gemini-2.5-flash-lite",
+    classifierModel: "gemini-2.5-flash",
     analystModel: "gemini-2.5-flash"
   },
   {

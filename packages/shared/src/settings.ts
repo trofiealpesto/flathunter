@@ -5,7 +5,7 @@ const runtimeSettingsObjectSchema = z.object({
   llmProvider: z.literal("gemini").default("gemini"),
   enableSemanticClassifier: z.boolean().default(true),
   enableLlmEnrichment: z.boolean().default(true),
-  llmClassifierModel: z.string().trim().min(1).default("gemini-2.5-flash-lite"),
+  llmClassifierModel: z.string().trim().min(1).default("gemini-2.5-flash"),
   llmAnalystModel: z.string().trim().min(1).default("gemini-2.5-flash"),
   scrapeWithFixtures: z.boolean().default(false)
 });
@@ -20,7 +20,7 @@ const runtimeSettingsSchema = z.preprocess((value) => {
   const llmClassifierModel =
     record.llmClassifierModel ??
     record.ollamaModel ??
-    "gemini-2.5-flash-lite";
+    "gemini-2.5-flash";
   const llmAnalystModel =
     record.llmAnalystModel ??
     record.ollamaTranslationModel ??
@@ -101,7 +101,7 @@ export const defaultAppSettings: AppSettings = {
     llmProvider: "gemini",
     enableSemanticClassifier: true,
     enableLlmEnrichment: true,
-    llmClassifierModel: "gemini-2.5-flash-lite",
+    llmClassifierModel: "gemini-2.5-flash",
     llmAnalystModel: "gemini-2.5-flash",
     scrapeWithFixtures: false
   },

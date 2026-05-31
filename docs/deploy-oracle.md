@@ -119,7 +119,7 @@ Set the API `APP_ORIGIN` to that same Vercel origin, not to `api.<your-domain>`.
 
 Recommended on a free or small Oracle VM:
 
-- use `gemini-2.5-flash-lite` for the classifier and `gemini-2.5-flash` for the on-demand analyst
+- use `gemini-2.5-flash` for the classifier and `gemini-2.5-flash` for the on-demand analyst
 - set `GEMINI_API_KEY` instead of running a local model daemon
 - keep `WORKER_DEV_INTERVAL_MS=300000` or slower
 - use `SCRAPER_PROXY_URL` only if you actually have a proxy endpoint

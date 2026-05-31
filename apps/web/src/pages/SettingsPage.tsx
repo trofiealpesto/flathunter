@@ -477,7 +477,7 @@ export function SettingsPage({
                   </div>
                 ))}
                 <FormField
-                  description="Recommended hot-path classifier default: gemini-2.5-flash-lite."
+                  description="Recommended classifier default: gemini-2.5-flash."
                   htmlFor="runtime-llm-classifier-model"
                   label="Classifier model"
                 >

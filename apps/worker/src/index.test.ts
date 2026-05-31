@@ -576,4 +576,98 @@ describe("runWorkerOnce", () => {
       })
     );
   });
+
+  it("stops classifier calls for the current run after a rate limit", async () => {
+    mocks.listEnabledPortalSourcesDue.mockResolvedValue([]);
+    mocks.getSettings.mockResolvedValue({
+      runtime: {
+        scrapeWithFixtures: false,
+        enableSemanticClassifier: true,
+        enableLlmEnrichment: true,
+        llmProvider: "gemini",
+        llmClassifierModel: "gemini-2.5-flash",
+        llmAnalystModel: "gemini-2.5-flash"
+      }
+    });
+    mocks.listListingsForEvaluation.mockResolvedValue([
+      {
+        id: "listing-1",
+        title: "First flat",
+        description: "Large apartment in Mitte",
+        eligibilityState: "UNSURE",
+        eligibilityReason: null,
+        semanticFlags: [],
+        semanticModel: null,
+        semanticInputFingerprint: null,
+        semanticLastErrorKind: null,
+        llmLastErrorKind: null,
+        llmAnalysis: null,
+        llmAnalysisStatus: "missing",
+        analysisFlags: []
+      },
+      {
+        id: "listing-2",
+        title: "Second flat",
+        description: "Large apartment in Mitte",
+        eligibilityState: "UNSURE",
+        eligibilityReason: null,
+        semanticFlags: [],
+        semanticModel: null,
+        semanticInputFingerprint: null,
+        semanticLastErrorKind: null,
+        llmLastErrorKind: null,
+        llmAnalysis: null,
+        llmAnalysisStatus: "missing",
+        analysisFlags: []
+      }
+    ]);
+    mocks.evaluateListingDeterministically.mockReturnValue({
+      score: 74,
+      eligibilityState: "UNSURE",
+      reason: "needs review",
+      analysisFlags: [],
+      shouldRunSemanticClassifier: true
+    });
+    mocks.classifyListingEligibility.mockResolvedValue({
+      eligibilityState: "UNSURE",
+      reason: "Semantic classifier rate limit; needs review",
+      flags: [],
+      inputFingerprint: "test-fingerprint",
+      usedFallback: true,
+      errorKind: "rate_limit",
+      didRetry: false
+    });
+
+    const { runWorkerOnce } = await import("./index");
+
+    await runWorkerOnce({
+      envInput: {
+        NODE_ENV: "test",
+        DATABASE_URL: "postgres://unused",
+        PORTAL_SECRETS_KEY: "portal-secrets-key-for-tests",
+        GEMINI_API_KEY: "gemini-test-key",
+        GEMINI_API_BASE_URL: "https://generativelanguage.googleapis.com/v1beta",
+        IMMOWELT_SEARCH_URL: "https://www.immowelt.de/liste/berlin/wohnungen/mieten",
+        IMMOWELT_ENABLE_LIVE_BROWSER: "true",
+        WORKER_DEV_INTERVAL_MS: "300000"
+      }
+    });
+
+    expect(mocks.classifyListingEligibility).toHaveBeenCalledTimes(1);
+    expect(mocks.updateListingEvaluation).toHaveBeenCalledWith(
+      db,
+      "listing-1",
+      expect.objectContaining({
+        semanticLastErrorKind: "rate_limit"
+      })
+    );
+    expect(mocks.updateListingEvaluation).toHaveBeenCalledWith(
+      db,
+      "listing-2",
+      expect.objectContaining({
+        eligibilityState: "UNSURE",
+        eligibilityReason: "needs review"
+      })
+    );
+  });
 });

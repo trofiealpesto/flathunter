@@ -88,6 +88,8 @@ async function evaluateReviewQueue({
 }) {
   const settings = await getSettings(db);
   const candidates = await listListingsForEvaluation(db);
+  const semanticClassifierConfigured = Boolean(env.GEMINI_API_KEY?.trim());
+  let stopSemanticClassifierForRun = !semanticClassifierConfigured;
 
   for (const candidate of candidates) {
     const deterministic = evaluateListingDeterministically(candidate, settings);
@@ -96,14 +98,14 @@ async function evaluateReviewQueue({
     let semanticFlags: string[] = candidate.semanticFlags;
     let semanticModel: string | null = candidate.semanticModel;
 
-    const shouldUseSemanticClassifier = settings.runtime.enableSemanticClassifier && deterministic.shouldRunSemanticClassifier;
+    const semanticClassifierEnabled = settings.runtime.enableSemanticClassifier && deterministic.shouldRunSemanticClassifier;
     const inputFingerprint = buildSemanticClassificationFingerprint(candidate, settings, {
       deterministicScore: deterministic.score,
       deterministicReason: deterministic.reason,
       analysisFlags: deterministic.analysisFlags
     });
     const canReuseCachedClassification =
-      shouldUseSemanticClassifier &&
+      semanticClassifierEnabled &&
       candidate.semanticInputFingerprint === inputFingerprint &&
       candidate.semanticModel === settings.runtime.llmClassifierModel;
 
@@ -111,10 +113,8 @@ async function evaluateReviewQueue({
       semanticFlags = candidate.semanticFlags;
       semanticModel = candidate.semanticModel;
 
-      if (shouldUseSemanticClassifier) {
-        eligibilityState = candidate.eligibilityState;
-        eligibilityReason = candidate.eligibilityReason ?? deterministic.reason;
-      }
+      eligibilityState = candidate.eligibilityState;
+      eligibilityReason = candidate.eligibilityReason ?? deterministic.reason;
     }
 
     let semanticInputFingerprint: string | null | undefined;
@@ -122,7 +122,7 @@ async function evaluateReviewQueue({
     let semanticLastErrorKind = undefined;
     let semanticLastErrorAt = undefined;
 
-    if (shouldUseSemanticClassifier && !canReuseCachedClassification) {
+    if (semanticClassifierEnabled && !canReuseCachedClassification && !stopSemanticClassifierForRun) {
       const timeouts = getRecommendedLlmTimeoutProfile(
         settings.runtime.llmClassifierModel,
         settings.runtime.llmAnalystModel
@@ -159,6 +159,10 @@ async function evaluateReviewQueue({
         semanticUpdatedAt = null;
         semanticLastErrorKind = semantic.errorKind;
         semanticLastErrorAt = semantic.errorKind ? new Date() : null;
+
+        if (semantic.errorKind === "rate_limit" || semantic.errorKind === "auth_error" || semantic.errorKind === "http_error") {
+          stopSemanticClassifierForRun = true;
+        }
       }
     } else if (canReuseCachedClassification) {
       semanticLastErrorKind = null;
