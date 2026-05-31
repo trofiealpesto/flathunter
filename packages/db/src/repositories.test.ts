@@ -14,12 +14,14 @@ import {
   deletePortalSourceAuth,
   ensurePortalSource,
   getDecryptedPortalCredentials,
+  getSettings,
   getPortalSourceAuthSummary,
   getDashboardStats,
   listListings,
   listPortalSources,
   markPortalRun,
   patchSettings,
+  resetListingsIngestionState,
   updateListingEvaluation,
   putPortalCredentials,
   updateListingLlmState,
@@ -127,6 +129,91 @@ describe("repositories", { timeout: 20_000 }, () => {
     expect(settings.scoring.maxWarmRent).toBe(2000);
     expect(settings.runtime.scrapeWithFixtures).toBe(false);
     expect(settings.search.city).toBe("Berlin");
+  });
+
+  it("resets listings and source run history without clearing settings or auth", async () => {
+    const db = await createTestDb();
+
+    await patchSettings(db, {
+      scoring: {
+        maxWarmRent: 2150
+      }
+    });
+    await ensurePortalSource(db, {
+      portal: "IMMOWELT",
+      searchUrl: "https://www.immowelt.de/liste/berlin/wohnungen/mieten"
+    });
+    await markPortalRun(db, "IMMOWELT", {
+      mode: "live",
+      status: "success",
+      listingsFound: 1,
+      listingsUpserted: 1,
+      failedDetails: 0,
+      errorMessage: null
+    });
+    await putPortalCredentials(
+      db,
+      "IMMOWELT",
+      {
+        authMode: "FORM_CREDENTIALS",
+        loginIdentifier: "hello@example.com",
+        password: "super-secret"
+      },
+      "portal-secrets-key-for-tests"
+    );
+    await upsertListing(db, {
+      portal: "IMMOWELT",
+      portalListingId: "reset-1",
+      url: "https://www.immowelt.de/expose/reset-1",
+      canonicalUrl: canonicalizeListingUrl("https://www.immowelt.de/expose/reset-1"),
+      title: "Listing to reset",
+      description: null,
+      addressLine: null,
+      city: "Berlin",
+      district: "Mitte",
+      neighborhood: null,
+      latitude: null,
+      longitude: null,
+      rentCold: 1200,
+      rentWarm: 1400,
+      sizeSqm: 60,
+      rooms: 2,
+      floor: null,
+      availableFrom: null,
+      isFurnished: false,
+      hasBalcony: false,
+      hasElevator: false,
+      rawPayload: {
+        source: "live"
+      }
+    });
+
+    const result = await resetListingsIngestionState(db);
+    const sources = await listPortalSources(db);
+    const authSummary = await getPortalSourceAuthSummary(db, "IMMOWELT");
+
+    expect(result).toEqual({
+      deletedListings: 1,
+      resetSources: 1
+    });
+    expect(await listListings(db, {})).toHaveLength(0);
+    expect((await getSettings(db)).scoring.maxWarmRent).toBe(2150);
+    expect(sources[0]).toMatchObject({
+      portal: "IMMOWELT",
+      lastRunAt: null,
+      lastSuccessAt: null,
+      lastError: null,
+      lastMode: null,
+      lastStatus: null,
+      lastListingsFound: null,
+      lastListingsUpserted: null,
+      lastFailedDetails: null
+    });
+    expect(authSummary).toMatchObject({
+      hasCredentials: true,
+      authStatus: "ready",
+      loginIdentifier: "hello@example.com"
+    });
   });
 
   it("computes dashboard analytics from listings", async () => {

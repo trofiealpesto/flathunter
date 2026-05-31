@@ -28,6 +28,11 @@ export type StatsSummary = {
   byStatus: Record<string, number>;
 };
 
+export type ResetListingsResult = {
+  deletedListings: number;
+  resetSources: number;
+};
+
 async function apiFetch<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
   const hasBody = init?.body != null;
   const headers = new Headers(init?.headers ?? {});
@@ -142,5 +147,9 @@ export const api = {
     apiFetch<AppSettings>("/api/settings", {
       method: "PATCH",
       body: JSON.stringify(patch)
+    }),
+  resetListings: () =>
+    apiFetch<ResetListingsResult>("/api/settings/reset-listings", {
+      method: "POST"
     })
 };

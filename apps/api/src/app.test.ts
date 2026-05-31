@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ensurePortalSource, getSettings, upsertListing, type Database } from "@flathunter/db";
+import { ensurePortalSource, getSettings, markPortalRun, upsertListing, type Database } from "@flathunter/db";
 import { canonicalizeListingUrl } from "@flathunter/shared";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -479,6 +479,93 @@ describe("api app", () => {
     });
 
     expect(response.json().scoring.maxWarmRent).toBe(1900);
+  });
+
+  it("resets listing ingestion from settings without changing settings", async () => {
+    const cookie = buildSessionCookieValue(
+      {
+        login: "giuva",
+        name: "Giuva",
+        avatarUrl: null,
+        expiresAt: new Date(Date.now() + 1000 * 60).toISOString()
+      },
+      "1234567890123456"
+    );
+
+    await markPortalRun(db, "IMMOWELT", {
+      mode: "live",
+      status: "success",
+      listingsFound: 1,
+      listingsUpserted: 1,
+      failedDetails: 0,
+      errorMessage: null
+    });
+
+    const update = await app.inject({
+      method: "PATCH",
+      url: "/api/settings",
+      cookies: {
+        fh_session: cookie
+      },
+      payload: {
+        scoring: {
+          maxWarmRent: 2050
+        }
+      }
+    });
+
+    expect(update.statusCode).toBe(200);
+
+    const reset = await app.inject({
+      method: "POST",
+      url: "/api/settings/reset-listings",
+      cookies: {
+        fh_session: cookie
+      }
+    });
+
+    expect(reset.statusCode).toBe(200);
+    expect(reset.json()).toEqual({
+      deletedListings: 1,
+      resetSources: 1
+    });
+
+    const listings = await app.inject({
+      method: "GET",
+      url: "/api/listings",
+      cookies: {
+        fh_session: cookie
+      }
+    });
+    const settings = await app.inject({
+      method: "GET",
+      url: "/api/settings",
+      cookies: {
+        fh_session: cookie
+      }
+    });
+    const sources = await app.inject({
+      method: "GET",
+      url: "/api/sources",
+      cookies: {
+        fh_session: cookie
+      }
+    });
+
+    expect(listings.statusCode).toBe(200);
+    expect(listings.json()).toHaveLength(0);
+    expect(settings.json().scoring.maxWarmRent).toBe(2050);
+    expect(sources.json()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          portal: "IMMOWELT",
+          lastRunAt: null,
+          lastStatus: null,
+          lastListingsFound: null,
+          lastListingsUpserted: null
+        })
+      ])
+    );
   });
 
   it("returns dashboard analytics for authenticated requests", async () => {

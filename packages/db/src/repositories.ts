@@ -632,6 +632,40 @@ export async function deleteInvalidLiveListingsByCanonicalPrefix(db: Database, p
   return rows.length;
 }
 
+export type ResetListingsIngestionStateResult = {
+  deletedListings: number;
+  resetSources: number;
+};
+
+export async function resetListingsIngestionState(db: Database): Promise<ResetListingsIngestionStateResult> {
+  return db.transaction(async (tx) => {
+    const [listingCountRow] = await tx.select({ count: sql<number>`count(*)::int` }).from(listings);
+
+    await tx.delete(listings);
+
+    const resetSourceRows = await tx
+      .update(portalSources)
+      .set({
+        lastRunAt: null,
+        lastSuccessAt: null,
+        lastError: null,
+        lastMode: null,
+        lastStatus: null,
+        lastListingsFound: null,
+        lastListingsUpserted: null,
+        lastFailedDetails: null
+      })
+      .returning({
+        id: portalSources.id
+      });
+
+    return {
+      deletedListings: listingCountRow?.count ?? 0,
+      resetSources: resetSourceRows.length
+    };
+  });
+}
+
 export async function listListings(db: Database, filters: ListingFilters) {
   const conditions = [];
 

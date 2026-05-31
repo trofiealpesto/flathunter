@@ -24,7 +24,7 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { ListingsPage } from "./pages/ListingsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SourcesPage } from "./pages/SourcesPage";
-import { api } from "./lib/api";
+import { api, type ResetListingsResult } from "./lib/api";
 
 const GLOBAL_POLL_INTERVAL_MS = 30_000;
 
@@ -164,6 +164,12 @@ function App() {
     setSettings(saved);
   };
 
+  const handleResetListings = async (): Promise<ResetListingsResult> => {
+    const result = await api.resetListings();
+    await refreshSourcesAndDashboard();
+    return result;
+  };
+
   const handleSaveSource = async (portal: Portal, patch: PortalSourcePatch) => {
     const updated = await api.updateSource(portal, patch);
     setSources((current) => current.map((source) => (source.portal === updated.portal ? updated : source)));
@@ -289,6 +295,7 @@ function App() {
               <SettingsPage
                 loading={loadingGlobals && !settings}
                 onSearchOfficeLocation={(query) => api.searchOfficeLocation(query)}
+                onResetListings={handleResetListings}
                 onRetry={handleRefreshGlobals}
                 onSaveSettings={handleSaveSettings}
                 settings={settings}

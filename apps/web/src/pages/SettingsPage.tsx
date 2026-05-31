@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import type { AppSettings, GeoSearchResult } from "@flathunter/shared";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
@@ -15,11 +26,13 @@ import { FormField } from "../components/FormField";
 import { SectionHeader } from "../components/SectionHeader";
 import { SurfaceCard } from "../components/SurfaceCard";
 import { ToneBadge } from "../components/ToneBadge";
+import type { ResetListingsResult } from "../lib/api";
 
 type SettingsPageProps = {
   settings: AppSettings | null;
   loading: boolean;
   onRetry: () => void;
+  onResetListings: () => Promise<ResetListingsResult>;
   onSaveSettings: (settings: AppSettings) => Promise<void>;
   onSearchOfficeLocation: (query: string) => Promise<GeoSearchResult[]>;
 };
@@ -30,7 +43,8 @@ const sections = [
   { id: "office-location", label: "Office location" },
   { id: "scoring", label: "Scoring" },
   { id: "runtime", label: "Runtime" },
-  { id: "semantic-rules", label: "Semantic rules" }
+  { id: "semantic-rules", label: "Semantic rules" },
+  { id: "maintenance", label: "Maintenance" }
 ] as const;
 
 type SettingsSectionId = (typeof sections)[number]["id"];
@@ -90,6 +104,7 @@ function ListTextarea({ id, rows, value, onValueChange }: ListTextareaProps) {
 export function SettingsPage({
   settings,
   loading,
+  onResetListings,
   onRetry,
   onSaveSettings,
   onSearchOfficeLocation
@@ -102,6 +117,10 @@ export function SettingsPage({
   const [officeResults, setOfficeResults] = useState<GeoSearchResult[]>([]);
   const [searchingOffice, setSearchingOffice] = useState(false);
   const [officeSearchMessage, setOfficeSearchMessage] = useState<string | null>(null);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resettingListings, setResettingListings] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft(settings);
@@ -125,6 +144,25 @@ export function SettingsPage({
       },
       { replace: true }
     );
+  };
+
+  const handleResetListings = async () => {
+    setResettingListings(true);
+    setResetError(null);
+    setResetMessage(null);
+
+    try {
+      const result = await onResetListings();
+      setResetMessage(
+        `${result.deletedListings} listing${result.deletedListings === 1 ? "" : "s"} deleted. ${result.resetSources} source worker${result.resetSources === 1 ? "" : "s"} reset for the next run.`
+      );
+      setResetDialogOpen(false);
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : "Unable to reset listings");
+      setResetDialogOpen(false);
+    } finally {
+      setResettingListings(false);
+    }
   };
 
   if (loading && !draft) {
@@ -599,6 +637,60 @@ export function SettingsPage({
                     value={draft.semanticRules.notes}
                   />
                 </FormField>
+              </div>
+            </SurfaceCard>
+          </TabsContent>
+
+          <TabsContent className="mt-0" id="maintenance" value="maintenance">
+            <SurfaceCard subtitle="Operational actions that keep configuration and source auth intact." title="Maintenance">
+              <div className="space-y-4">
+                {resetError ? (
+                  <Alert variant="destructive">
+                    <AlertDescription>{resetError}</AlertDescription>
+                  </Alert>
+                ) : null}
+                {resetMessage ? (
+                  <Alert>
+                    <AlertDescription>{resetMessage}</AlertDescription>
+                  </Alert>
+                ) : null}
+
+                <div className="flex flex-col gap-3 border-t pt-4 md:flex-row md:items-center md:justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-medium">Reset listing ingestion</h3>
+                    <p className="max-w-2xl text-sm text-muted-foreground">
+                      Deletes every listing and clears source run history. Settings, environment values, saved credentials, and browser sessions stay in place.
+                    </p>
+                  </div>
+
+                  <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button disabled={resettingListings} type="button" variant="destructive">
+                        <Trash2 />
+                        Reset listings
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Reset listings?</DialogTitle>
+                        <DialogDescription>
+                          This deletes all listing rows and contact attempts, then marks enabled sources as ready to run again on the next worker cycle.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button disabled={resettingListings} type="button" variant="outline">
+                            Cancel
+                          </Button>
+                        </DialogClose>
+                        <Button disabled={resettingListings} onClick={handleResetListings} type="button" variant="destructive">
+                          {resettingListings ? <Loader2 className="animate-spin" /> : <RotateCcw />}
+                          {resettingListings ? "Resetting..." : "Reset now"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             </SurfaceCard>
           </TabsContent>

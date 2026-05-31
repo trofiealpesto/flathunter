@@ -1,4 +1,4 @@
-import { getSettings, patchSettings } from "@flathunter/db";
+import { getSettings, patchSettings, resetListingsIngestionState } from "@flathunter/db";
 import { appSettingsPatchSchema } from "@flathunter/shared";
 import type { FastifyInstance } from "fastify";
 
@@ -22,5 +22,12 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: AppDeps) {
     const patch = appSettingsPatchSchema.parse(request.body);
     return patchSettings(deps.db, patch);
   });
-}
 
+  app.post("/api/settings/reset-listings", async (request, reply) => {
+    if (!requireSession(request, reply, deps.env)) {
+      return;
+    }
+
+    return resetListingsIngestionState(deps.db);
+  });
+}
