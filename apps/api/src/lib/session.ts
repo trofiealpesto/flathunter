@@ -103,6 +103,78 @@ export function issueOauthState(reply: FastifyReply, env: ApiEnv) {
   return state.split(".")[0];
 }
 
+function firstHeaderValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  return value;
+}
+
+function firstForwardedValue(value: string | undefined) {
+  return value?.split(",")[0]?.trim();
+}
+
+function parseOrigin(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function getOauthStartRequestOrigin(request: FastifyRequest, appOrigin: URL) {
+  const origin = parseOrigin(firstHeaderValue(request.headers.origin));
+  if (origin) {
+    return origin;
+  }
+
+  const referer = parseOrigin(firstHeaderValue(request.headers.referer));
+  if (referer) {
+    return referer;
+  }
+
+  const forwardedHost = firstForwardedValue(firstHeaderValue(request.headers["x-forwarded-host"]));
+  if (forwardedHost) {
+    const forwardedProtoHeader = firstForwardedValue(firstHeaderValue(request.headers["x-forwarded-proto"]));
+    const forwardedProto = forwardedProtoHeader ?? appOrigin.protocol.replace(":", "");
+    return `${forwardedProto}://${forwardedHost}`;
+  }
+
+  const host = firstHeaderValue(request.headers.host);
+  if (!host) {
+    return null;
+  }
+
+  if (host === appOrigin.host) {
+    return appOrigin.origin;
+  }
+
+  return `${appOrigin.protocol}//${host}`;
+}
+
+export function buildCanonicalOauthStartUrl(env: ApiEnv) {
+  const url = new URL("/api/auth/github/start", env.APP_ORIGIN);
+  url.searchParams.set("canonical", "1");
+  return url.toString();
+}
+
+export function shouldRedirectOauthStartToAppOrigin(request: FastifyRequest, env: ApiEnv) {
+  const startUrl = new URL(request.url, env.APP_ORIGIN);
+
+  if (startUrl.searchParams.get("canonical") === "1") {
+    return false;
+  }
+
+  const appOrigin = new URL(env.APP_ORIGIN);
+  const requestOrigin = getOauthStartRequestOrigin(request, appOrigin);
+  return requestOrigin !== null && requestOrigin !== appOrigin.origin;
+}
+
 export function consumeOauthState(request: FastifyRequest, reply: FastifyReply, env: ApiEnv, state: string) {
   const cookie = request.cookies[STATE_COOKIE];
   reply.clearCookie(STATE_COOKIE, {

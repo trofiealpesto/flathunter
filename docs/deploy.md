@@ -97,6 +97,8 @@ https://flathunter.example.com/api/auth/github/callback
 
 Use `http://.../api/auth/github/callback` if you deploy with `PROD_SCHEME=http`.
 
+`APP_ORIGIN` must be the exact canonical browser origin you use for the app, including scheme and host. If the app is opened through an IP address, `www` alias, or another temporary hostname, the login flow redirects back to `APP_ORIGIN` before setting the OAuth state cookie.
+
 ## HTTPS notes
 
 The HTTPS profile uses Caddy automatic certificates. For public Let's Encrypt certificates:

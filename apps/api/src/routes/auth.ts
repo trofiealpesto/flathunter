@@ -5,7 +5,16 @@ import type { FastifyInstance } from "fastify";
 
 import type { AppDeps } from "../app";
 import { buildGitHubAuthorizeUrl, exchangeGitHubCode, fetchGitHubUser } from "../github/client";
-import { clearSession, consumeOauthState, issueOauthState, issueSession, normalizeGitHubLogin, readSession } from "../lib/session";
+import {
+  buildCanonicalOauthStartUrl,
+  clearSession,
+  consumeOauthState,
+  issueOauthState,
+  issueSession,
+  normalizeGitHubLogin,
+  readSession,
+  shouldRedirectOauthStartToAppOrigin
+} from "../lib/session";
 
 const callbackQuerySchema = z.object({
   code: z.string().min(1),
@@ -13,7 +22,12 @@ const callbackQuerySchema = z.object({
 });
 
 export function registerAuthRoutes(app: FastifyInstance, deps: AppDeps) {
-  app.get("/api/auth/github/start", async (_request, reply) => {
+  app.get("/api/auth/github/start", async (request, reply) => {
+    if (shouldRedirectOauthStartToAppOrigin(request, deps.env)) {
+      reply.redirect(buildCanonicalOauthStartUrl(deps.env));
+      return;
+    }
+
     const state = issueOauthState(reply, deps.env);
     reply.redirect(buildGitHubAuthorizeUrl(deps.env, state));
   });
@@ -23,9 +37,9 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AppDeps) {
     const isValidState = consumeOauthState(request, reply, deps.env, query.state);
 
     if (!isValidState) {
-      reply.code(400).send({
-        message: "Invalid OAuth state"
-      });
+      const loginUrl = new URL("/", deps.env.APP_ORIGIN);
+      loginUrl.searchParams.set("auth_error", "oauth_state");
+      reply.redirect(loginUrl.toString());
       return;
     }
 
@@ -68,4 +82,3 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AppDeps) {
     reply.code(204).send();
   });
 }
-

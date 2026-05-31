@@ -1,5 +1,6 @@
 import { GitBranch } from "lucide-react";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -15,8 +16,23 @@ function getGitHubSignInHref() {
   return "/api/auth/github/start";
 }
 
+function getAuthErrorMessage() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const authError = new URLSearchParams(window.location.search).get("auth_error");
+
+  if (authError === "oauth_state") {
+    return "The GitHub sign-in expired or started from another address. Start sign-in again from this page.";
+  }
+
+  return null;
+}
+
 export function LoginGate() {
   const signInHref = getGitHubSignInHref();
+  const authErrorMessage = getAuthErrorMessage();
 
   return (
     <main className="grid min-h-svh place-items-center bg-background p-6 text-foreground">
@@ -29,6 +45,11 @@ export function LoginGate() {
           <p className="text-sm leading-relaxed text-muted-foreground">
             Authentication is restricted to the configured GitHub admin account. Start the OAuth flow to access the dashboard.
           </p>
+          {authErrorMessage ? (
+            <Alert variant="destructive">
+              <AlertDescription>{authErrorMessage}</AlertDescription>
+            </Alert>
+          ) : null}
           <Button asChild className="w-full" size="lg">
             <a href={signInHref}>
               <GitBranch />

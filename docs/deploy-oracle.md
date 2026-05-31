@@ -113,6 +113,7 @@ https://<your-vercel-domain>/api/auth/github/callback
 ```
 
 The browser always talks to Vercel. Vercel proxies that callback to the Oracle API.
+Set the API `APP_ORIGIN` to that same Vercel origin, not to `api.<your-domain>`.
 
 ## 8. Post-deploy application settings
 

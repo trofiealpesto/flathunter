@@ -12,6 +12,17 @@ import { buildApp } from "./app";
 import { buildSessionCookieValue } from "./lib/session";
 import * as schema from "../../../packages/db/src/schema";
 
+function readSetCookieValue(header: string | string[] | undefined, name: string) {
+  const values = Array.isArray(header) ? header : header ? [header] : [];
+  const cookie = values.find((value) => value.startsWith(`${name}=`));
+
+  if (!cookie) {
+    return null;
+  }
+
+  return cookie.slice(name.length + 1).split(";")[0] ?? null;
+}
+
 async function applyMigrations(exec: (sql: string) => Promise<unknown>) {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const migrationsDir = path.resolve(currentDir, "../../../packages/db/drizzle/migrations");
@@ -206,6 +217,93 @@ describe("api app", () => {
         avatarUrl: null
       }
     });
+  });
+
+  it("redirects GitHub OAuth starts from alternate browser origins to the configured app origin", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/github/start",
+      headers: {
+        referer: "http://192.168.1.20:3000/"
+      }
+    });
+
+    expect(response.statusCode).toBe(302);
+    expect(response.headers.location).toBe("http://localhost:3000/api/auth/github/start?canonical=1");
+    expect(response.headers["set-cookie"]).toBeUndefined();
+  });
+
+  it("starts GitHub OAuth on the configured app origin after canonical redirect", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/github/start?canonical=1",
+      headers: {
+        referer: "http://192.168.1.20:3000/"
+      }
+    });
+
+    const location = new URL(String(response.headers.location));
+
+    expect(response.statusCode).toBe(302);
+    expect(location.origin).toBe("https://github.com");
+    expect(location.pathname).toBe("/login/oauth/authorize");
+    expect(location.searchParams.get("redirect_uri")).toBe("http://localhost:3000/api/auth/github/callback");
+    expect(location.searchParams.get("state")).toBeTruthy();
+    expect(readSetCookieValue(response.headers["set-cookie"], "fh_github_state")).toBeTruthy();
+  });
+
+  it("redirects invalid GitHub OAuth callbacks back to the login screen", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/auth/github/callback?code=github-code&state=missing-cookie"
+    });
+
+    expect(response.statusCode).toBe(302);
+    expect(response.headers.location).toBe("http://localhost:3000/?auth_error=oauth_state");
+  });
+
+  it("issues a session after a valid GitHub OAuth callback", async () => {
+    const startResponse = await app.inject({
+      method: "GET",
+      url: "/api/auth/github/start?canonical=1"
+    });
+    const oauthState = new URL(String(startResponse.headers.location)).searchParams.get("state");
+    const stateCookie = readSetCookieValue(startResponse.headers["set-cookie"], "fh_github_state");
+
+    expect(oauthState).toBeTruthy();
+    expect(stateCookie).toBeTruthy();
+
+    fetchImpl.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url === "https://github.com/login/oauth/access_token") {
+        return new Response(JSON.stringify({ access_token: "github-token" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      if (url === "https://api.github.com/user") {
+        return new Response(JSON.stringify({ login: "GiUvA", name: "Giuva", avatar_url: null }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    const callbackResponse = await app.inject({
+      method: "GET",
+      url: `/api/auth/github/callback?code=github-code&state=${oauthState}`,
+      cookies: {
+        fh_github_state: stateCookie as string
+      }
+    });
+
+    expect(callbackResponse.statusCode).toBe(302);
+    expect(callbackResponse.headers.location).toBe("http://localhost:3000/");
+    expect(readSetCookieValue(callbackResponse.headers["set-cookie"], "fh_session")).toBeTruthy();
   });
 
   it("lists data for authenticated requests", async () => {
