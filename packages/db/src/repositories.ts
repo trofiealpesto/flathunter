@@ -434,6 +434,7 @@ function serializeListingBase(row: ListingRow, officeLocation: OfficeLocation | 
     hasBalcony: row.hasBalcony,
     hasElevator: row.hasElevator,
     score: row.score,
+    semanticFitScore: row.semanticFitScore ?? null,
     userStatus: row.userStatus,
     eligibilityState: row.eligibilityState,
     eligibilityReason: row.eligibilityReason,
@@ -703,11 +704,21 @@ export async function listListings(db: Database, filters: ListingFilters) {
     );
   }
 
+  const sortByBest = !filters.sort || filters.sort === "best";
+
   const rows = await db
     .select()
     .from(listings)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(listings.lastSeenAt));
+    .orderBy(
+      ...(sortByBest
+        ? [
+            sql`CASE eligibility_state WHEN 'MATCH' THEN 0 WHEN 'UNSURE' THEN 1 ELSE 2 END`,
+            sql`COALESCE(semantic_fit_score, score) DESC NULLS LAST`,
+            desc(listings.lastSeenAt)
+          ]
+        : [desc(listings.lastSeenAt)])
+    );
 
   const settings = await getSettings(db);
   const officeLocation = getOfficeLocation(settings);
@@ -755,6 +766,7 @@ export async function updateListingEvaluation(
     analysisFlags: AnalysisFlag[];
     semanticFlags: string[];
     semanticModel: string | null;
+    semanticFitScore?: number | null;
     semanticInputFingerprint?: string | null;
     semanticUpdatedAt?: Date | null;
     semanticLastErrorKind?: LlmErrorKind | null;
@@ -773,6 +785,7 @@ export async function updateListingEvaluation(
       analysisFlags: payload.analysisFlags,
       semanticFlags: payload.semanticFlags,
       semanticModel: payload.semanticModel,
+      ...(payload.semanticFitScore !== undefined ? { semanticFitScore: payload.semanticFitScore } : {}),
       ...(payload.semanticInputFingerprint !== undefined
         ? { semanticInputFingerprint: payload.semanticInputFingerprint }
         : {}),

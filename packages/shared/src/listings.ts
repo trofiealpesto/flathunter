@@ -29,6 +29,9 @@ export const contactStatusSchema = z.enum(contactStatuses);
 export const listingSourceModeSchema = z.enum(listingSourceModes);
 export const analysisFlagSchema = z.enum(analysisFlags);
 
+export const listingSortValues = ["best", "newest"] as const;
+export const listingSortSchema = z.enum(listingSortValues);
+
 export const listingFilterSchema = z.object({
   portal: portalSchema.optional(),
   userStatus: userStatusSchema.optional(),
@@ -37,7 +40,8 @@ export const listingFilterSchema = z.object({
   minSizeSqm: z.coerce.number().optional(),
   minScore: z.coerce.number().optional(),
   district: z.string().trim().min(1).optional(),
-  query: z.string().trim().min(1).optional()
+  query: z.string().trim().min(1).optional(),
+  sort: listingSortSchema.optional()
 });
 
 export const listingBaseSchema = z.object({
@@ -66,6 +70,7 @@ export const listingBaseSchema = z.object({
   hasBalcony: z.boolean(),
   hasElevator: z.boolean(),
   score: z.number().int().nullable(),
+  semanticFitScore: z.number().int().nullish(),
   userStatus: userStatusSchema,
   eligibilityState: eligibilityStateSchema,
   eligibilityReason: z.string().nullable(),
@@ -122,6 +127,7 @@ export type UserStatus = z.infer<typeof userStatusSchema>;
 export type EligibilityState = z.infer<typeof eligibilityStateSchema>;
 export type ListingSourceMode = z.infer<typeof listingSourceModeSchema>;
 export type AnalysisFlag = z.infer<typeof analysisFlagSchema>;
+export type ListingSort = z.infer<typeof listingSortSchema>;
 export type ListingFilters = z.infer<typeof listingFilterSchema>;
 export type ListingSummary = z.infer<typeof listingSummarySchema>;
 export type ListingDetail = z.infer<typeof listingDetailSchema>;

@@ -147,6 +147,25 @@ function buildRejectReason(flag: AnalysisFlag) {
   return `Deterministic reject: ${FLAG_REASON_LABELS[flag]}.`;
 }
 
+function listingClearlyMissesProfile(
+  listing: Parameters<typeof evaluateListingDeterministically>[0],
+  settings: AppSettings
+): string | null {
+  if (listing.rentWarm != null && listing.rentWarm > settings.scoring.maxWarmRent * 1.2) {
+    return `warm rent ${listing.rentWarm} exceeds limit ${settings.scoring.maxWarmRent} by >20%`;
+  }
+
+  if (listing.sizeSqm != null && listing.sizeSqm < settings.scoring.minimumSizeSqm * 0.75) {
+    return `size ${listing.sizeSqm} sqm is <75% of minimum ${settings.scoring.minimumSizeSqm} sqm`;
+  }
+
+  if (listing.rooms != null && listing.rooms < settings.scoring.minimumRooms - 0.75) {
+    return `${listing.rooms} rooms is below minimum ${settings.scoring.minimumRooms}`;
+  }
+
+  return null;
+}
+
 export function evaluateListingDeterministically(
   listing: AnalyzableListing & Pick<ListingSummary, "district" | "rentWarm"> & Partial<Pick<ListingSummary, "city">>,
   settings: AppSettings
@@ -164,6 +183,18 @@ export function evaluateListingDeterministically(
       score,
       eligibilityState: "REJECT",
       reason: buildRejectReason(hardRejectFlag),
+      shouldRunSemanticClassifier: false
+    };
+  }
+
+  const profileMissReason = listingClearlyMissesProfile(listing, settings);
+
+  if (profileMissReason) {
+    return {
+      analysisFlags,
+      score,
+      eligibilityState: "REJECT",
+      reason: `Deterministic reject: ${profileMissReason}.`,
       shouldRunSemanticClassifier: false
     };
   }

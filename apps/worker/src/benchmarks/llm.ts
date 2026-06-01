@@ -40,9 +40,9 @@ const benchmarkConfigs: BenchmarkConfig[] = [
     analystModel: "gemini-2.5-flash"
   },
   {
-    id: "gemma-api-26b",
-    classifierModel: "gemma-4-26b-a4b-it",
-    analystModel: "gemma-4-26b-a4b-it"
+    id: "gemma-api-27b",
+    classifierModel: "gemma-3-27b-it",
+    analystModel: "gemma-3-27b-it"
   }
 ];
 

@@ -1,4 +1,4 @@
-import type { ListingFilters } from "@flathunter/shared";
+import type { ListingFilters, ListingSort } from "@flathunter/shared";
 
 export type ListingViewTab = "all" | "new" | "match" | "contacted";
 
@@ -10,7 +10,8 @@ const filterKeys = [
   "minSizeSqm",
   "minScore",
   "district",
-  "query"
+  "query",
+  "sort"
 ] as const;
 
 export function filtersFromSearchParams(searchParams: URLSearchParams): ListingFilters {
@@ -55,6 +56,12 @@ export function filtersFromSearchParams(searchParams: URLSearchParams): ListingF
 
   if (minScore) {
     next.minScore = Number(minScore);
+  }
+
+  const sort = searchParams.get("sort");
+
+  if (sort === "best" || sort === "newest") {
+    next.sort = sort as ListingSort;
   }
 
   return next;

@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { officeLocationSchema } from "./geo";
 
-export const defaultClassifierPrimaryModel = "gemma-4-26b-a4b-it";
+// Free-tier models: gemini-2.5-flash-lite (primary, high RPM free quota) + gemini-2.5-flash (fallback).
+// Strict free-only alternative: gemma-3-27b-it (never billable), but lower quality.
+export const defaultClassifierPrimaryModel = "gemini-2.5-flash-lite";
 export const defaultClassifierFallbackModel = "gemini-2.5-flash";
 export const defaultClassifierFallbackMinScore = 80;
 export const defaultAnalystModel = "gemini-2.5-flash";

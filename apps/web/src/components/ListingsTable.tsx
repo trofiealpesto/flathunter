@@ -1,7 +1,7 @@
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from "@tanstack/react-table";
 import { Loader2, Search as SearchIcon } from "lucide-react";
 
-import type { EligibilityState, ListingFilters, ListingSummary, Portal, UserStatus } from "@flathunter/shared";
+import type { EligibilityState, ListingFilters, ListingSort, ListingSummary, Portal, UserStatus } from "@flathunter/shared";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +80,11 @@ const columns: ColumnDef<ListingSummary>[] = [
     cell: ({ row }) => row.original.score ?? "n/a"
   },
   {
+    accessorKey: "semanticFitScore",
+    header: "Fit",
+    cell: ({ row }) => row.original.semanticFitScore != null ? row.original.semanticFitScore : "—"
+  },
+  {
     accessorKey: "distanceKm",
     header: "Distance",
     cell: ({ row }) => formatDistance(row.original.distanceKm)
@@ -132,7 +137,7 @@ export function ListingsTable({
         </div>
       </div>
 
-      <div className="grid gap-2 border-b p-3 md:grid-cols-5 xl:grid-cols-10">
+      <div className="grid gap-2 border-b p-3 md:grid-cols-5 xl:grid-cols-11">
         <div className="relative md:col-span-2 xl:col-span-2">
           <SearchIcon className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -212,6 +217,16 @@ export function ListingsTable({
             <SelectItem value="CONTACTED">Contacted</SelectItem>
             <SelectItem value="REJECTED">Rejected</SelectItem>
             <SelectItem value="BLACKLISTED">Blacklisted</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          onValueChange={(value) => onChange({ sort: value === "best" ? undefined : (value as ListingSort) })}
+          value={filters.sort ?? "best"}
+        >
+          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="best">Best first</SelectItem>
+            <SelectItem value="newest">Newest first</SelectItem>
           </SelectContent>
         </Select>
       </div>

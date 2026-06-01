@@ -13,7 +13,8 @@ export const semanticFlagSchema = z.enum([
 export const semanticClassificationSchema = z.object({
   eligibilityState: z.enum(["MATCH", "UNSURE", "REJECT"]),
   reason: z.string().trim().min(1),
-  flags: z.array(semanticFlagSchema).default([])
+  flags: z.array(semanticFlagSchema).default([]),
+  fitScore: z.number().int().min(0).max(100).optional()
 });
 
 export type SemanticClassification = z.infer<typeof semanticClassificationSchema>;
@@ -53,9 +54,14 @@ export const semanticClassificationJsonSchema = {
         type: "string",
         enum: ["LONG_TERM", "SHORT_TERM", "WBS_REQUIRED", "COUPLE_FRIENDLY", "FURNISHED", "NO_REGISTRATION", "PET_FRIENDLY"]
       }
+    },
+    fitScore: {
+      type: "integer",
+      minimum: 0,
+      maximum: 100
     }
   },
-  required: ["eligibilityState", "reason", "flags"]
+  required: ["eligibilityState", "reason", "flags", "fitScore"]
 } as const;
 
 export const translationResultJsonSchema = {

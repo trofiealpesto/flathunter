@@ -66,6 +66,7 @@ export const listings = pgTable(
     hasBalcony: boolean("has_balcony").notNull().default(false),
     hasElevator: boolean("has_elevator").notNull().default(false),
     score: integer("score"),
+    semanticFitScore: integer("semantic_fit_score"),
     userStatus: userStatusEnum("user_status").notNull().default("NEW"),
     eligibilityState: eligibilityStateEnum("eligibility_state").notNull().default("UNSURE"),
     eligibilityReason: text("eligibility_reason"),

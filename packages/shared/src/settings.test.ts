@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { appSettingsSchema } from "./settings";
 
 describe("appSettingsSchema", () => {
-  it("defaults the classifier to Gemma with Flash fallback", () => {
+  it("defaults the classifier to flash-lite with Flash fallback", () => {
     const runtime = appSettingsSchema.parse({ ...defaultSettingsInput(), runtime: {} }).runtime;
 
-    expect(runtime.llmClassifierModel).toBe("gemma-4-26b-a4b-it");
+    expect(runtime.llmClassifierModel).toBe("gemini-2.5-flash-lite");
     expect(runtime.llmClassifierFallbackEnabled).toBe(true);
     expect(runtime.llmClassifierFallbackModel).toBe("gemini-2.5-flash");
     expect(runtime.llmClassifierFallbackMinScore).toBe(80);

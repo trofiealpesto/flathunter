@@ -130,6 +130,7 @@ async function evaluateReviewQueue({
     let eligibilityReason = deterministic.reason;
     let semanticFlags: string[] = candidate.semanticFlags;
     let semanticModel: string | null = candidate.semanticModel;
+    let semanticFitScore: number | null | undefined = undefined;
 
     const semanticClassifierEnabled = settings.runtime.enableSemanticClassifier && deterministic.shouldRunSemanticClassifier;
     const inputFingerprint = buildSemanticClassificationFingerprint(candidate, settings, {
@@ -224,6 +225,7 @@ async function evaluateReviewQueue({
 
         semanticFlags = semantic.flags;
         semanticModel = cacheSemanticResult ? semantic.model ?? settings.runtime.llmClassifierModel : null;
+        semanticFitScore = semantic.fitScore ?? null;
         eligibilityState = semantic.eligibilityState;
         eligibilityReason = semantic.reason;
         semanticInputFingerprint = cacheSemanticResult ? semantic.inputFingerprint : null;
@@ -233,6 +235,7 @@ async function evaluateReviewQueue({
       } else {
         semanticFlags = semantic.flags;
         semanticModel = null;
+        semanticFitScore = semantic.fitScore ?? null;
         eligibilityState = semantic.eligibilityState;
         eligibilityReason = semantic.reason;
         semanticInputFingerprint = null;
@@ -259,6 +262,7 @@ async function evaluateReviewQueue({
       analysisFlags: deterministic.analysisFlags,
       semanticFlags,
       semanticModel,
+      semanticFitScore,
       semanticInputFingerprint,
       semanticUpdatedAt,
       semanticLastErrorKind,

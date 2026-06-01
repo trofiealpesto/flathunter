@@ -324,7 +324,13 @@ function buildClassifierPrompt(
     `Deterministic analysis flags: ${stringifyPromptValue(context.analysisFlags)}`,
     `Must match: ${stringifyPromptValue(settings.semanticRules.mustMatch)}`,
     `Avoid: ${stringifyPromptValue(settings.semanticRules.avoid)}`,
-    `Notes: ${stringifyPromptValue(settings.semanticRules.notes)}`
+    `Notes: ${stringifyPromptValue(settings.semanticRules.notes)}`,
+    "fitScore policy:",
+    "- Return fitScore 0-100: how well this listing fits the search profile and rules.",
+    "- Base fitScore on semantic content (description, title, rental type, terms) — not metadata alone.",
+    "- 100 = ideal fit for all must-match rules and preferences. 0 = clear reject or completely wrong type.",
+    "- MATCH range: 65-100. UNSURE range: 35-64. REJECT range: 0-34.",
+    "- Calibrate within each eligibility bucket: a borderline MATCH scores ~65, a strong MATCH scores 85+."
   ];
 
   if (compact) {
@@ -553,7 +559,8 @@ function isRecoverableForClassifierFallback(errorKind: LlmErrorKind | null) {
     errorKind === "invalid_json" ||
     errorKind === "empty_response" ||
     errorKind === "timeout" ||
-    errorKind === "transport_error"
+    errorKind === "transport_error" ||
+    errorKind === "http_error"  // includes 404 from a misconfigured/unknown model name
   );
 }
 
@@ -578,12 +585,25 @@ function shouldEscalateClassifierResult(
     return false;
   }
 
-  if (context.deterministicScore < settings.runtime.llmClassifierFallbackMinScore) {
-    return false;
+  if (result) {
+    // Primary succeeded but returned UNSURE: only escalate if score meets threshold (cost gate)
+    if (context.deterministicScore < settings.runtime.llmClassifierFallbackMinScore) {
+      return false;
+    }
+
+    return result.eligibilityState === "UNSURE";
   }
 
-  if (result) {
-    return result.eligibilityState === "UNSURE";
+  // http_error (e.g. 404 for a misconfigured/non-existent model): always escalate to fallback
+  // regardless of score — the primary model itself is broken, not the listing.
+  if (errorKind === "http_error") {
+    return true;
+  }
+
+  // Other recoverable errors (timeout, parse failure): still respect the score gate
+  // so we don't burn fallback quota on low-value listings during transient issues.
+  if (context.deterministicScore < settings.runtime.llmClassifierFallbackMinScore) {
+    return false;
   }
 
   return isRecoverableForClassifierFallback(errorKind);
@@ -617,7 +637,8 @@ function buildClassifierUnavailableFallback(
   return {
     eligibilityState,
     reason,
-    flags: semanticFlags
+    flags: semanticFlags,
+    fitScore: context.deterministicScore
   };
 }
 
