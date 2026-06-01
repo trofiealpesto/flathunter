@@ -1,9 +1,10 @@
 import { z } from "zod";
 
-import { getListingById, getSettings, listListings, updateListingLlmState, updateListingStatus } from "@flathunter/db";
+import { getListingById, getSettings, listListings, updateListingEvaluation, updateListingLlmState, updateListingStatus } from "@flathunter/db";
 import {
+  classifyListingEligibility,
+  evaluateListingDeterministically,
   formatRuntimeError,
-  generateListingEnglishAnalyst,
   getLlmErrorKind,
   getRecommendedLlmTimeoutProfile,
   listingFilterSchema,
@@ -63,7 +64,7 @@ export function registerListingRoutes(app: FastifyInstance, deps: AppDeps) {
 
     const settings = await getSettings(deps.db);
     const timeouts = getRecommendedLlmTimeoutProfile(
-      settings.runtime.llmClassifierModel,
+      settings.runtime.llmAnalystModel,
       settings.runtime.llmAnalystModel
     );
 
@@ -71,18 +72,53 @@ export function registerListingRoutes(app: FastifyInstance, deps: AppDeps) {
       return listing;
     }
 
+    // Re-evaluate deterministically to get context for the LLM call.
+    const deterministic = evaluateListingDeterministically(listing, settings);
+
     try {
-      const generated = await generateListingEnglishAnalyst(listing, settings, {
+      // Single unified call: produces eligibility verdict + translation + summary.
+      // Uses the analyst model on-demand for best quality.
+      const evaluation = await classifyListingEligibility(listing, settings, {
+        deterministicScore: deterministic.score,
+        deterministicReason: deterministic.reason,
+        analysisFlags: deterministic.analysisFlags
+      }, {
         apiKey: deps.env.GEMINI_API_KEY,
         baseUrl: deps.env.GEMINI_API_BASE_URL,
-        classifierModel: settings.runtime.llmClassifierModel,
+        classifierModel: settings.runtime.llmAnalystModel,
         analystModel: settings.runtime.llmAnalystModel,
         fetchImpl: deps.fetchImpl,
-        analystTimeoutMs: timeouts.analystTimeoutMs
+        timeoutMs: timeouts.analystTimeoutMs,
+        allowClassifierFallback: false
       });
 
-      return updateListingLlmState(deps.db, id, {
-        llmAnalysis: generated.llmAnalysis,
+      // If the LLM was unavailable, surface the error the same way as before.
+      if (evaluation.usedFallback && evaluation.errorKind) {
+        await updateListingLlmState(deps.db, id, {
+          llmLastErrorKind: evaluation.errorKind,
+          llmLastErrorAt: new Date()
+        });
+
+        reply.code(502).send({
+          message: `Listing evaluation failed: ${evaluation.errorKind.replace(/_/g, " ")}`
+        });
+        return;
+      }
+
+      // Persist both the updated verdict and the analysis.
+      return updateListingEvaluation(deps.db, id, {
+        score: deterministic.score,
+        eligibilityState: evaluation.eligibilityState,
+        eligibilityReason: evaluation.reason,
+        analysisFlags: deterministic.analysisFlags,
+        semanticFlags: evaluation.flags,
+        semanticModel: evaluation.model,
+        semanticFitScore: evaluation.fitScore ?? null,
+        semanticInputFingerprint: evaluation.inputFingerprint,
+        semanticUpdatedAt: new Date(),
+        semanticLastErrorKind: null,
+        semanticLastErrorAt: null,
+        llmAnalysis: evaluation.llmAnalysis,
         llmLastErrorKind: null,
         llmLastErrorAt: null
       });
@@ -93,7 +129,7 @@ export function registerListingRoutes(app: FastifyInstance, deps: AppDeps) {
       });
 
       reply.code(502).send({
-        message: formatRuntimeError(error, "English analyst generation failed")
+        message: formatRuntimeError(error, "Listing evaluation failed")
       });
       return;
     }

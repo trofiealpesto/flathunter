@@ -75,10 +75,16 @@ export function extractAnalysisFlags(listing: AnalyzableListing): AnalysisFlag[]
   if (
     includesAny(combinedText, [
       /\bzwischenmiete\b/,
+      /\buntermiete\b/,
       /\bbefristet\b/,
+      /\bauf zeit\b/,
       /\btemporary sublet\b/,
       /\bshort[- ]term\b/,
-      /\bsublet\b/
+      /\bsublet\b/,
+      /\blimited term\b/,
+      /\bonly for \d+/,
+      /\bfor \d+ months?\b/,
+      /\bfur \d+ monate?\b/
     ])
   ) {
     flags.add("temporary_sublet");
@@ -199,27 +205,13 @@ export function evaluateListingDeterministically(
     };
   }
 
-  const strongPositiveSignals =
-    (analysisFlags.includes("long_term") ? 1 : 0) +
-    (analysisFlags.includes("couple_friendly") ? 1 : 0) +
-    (analysisFlags.includes("balcony_mentioned") ? 1 : 0) +
-    (analysisFlags.includes("elevator_mentioned") ? 1 : 0);
-
-  if (score >= 78 && strongPositiveSignals >= 2) {
-    return {
-      analysisFlags,
-      score,
-      eligibilityState: "MATCH",
-      reason: `Deterministic match: score ${score} with ${describeFlags(analysisFlags)}.`,
-      shouldRunSemanticClassifier: false
-    };
-  }
-
+  // No deterministic MATCH: the LLM is the only authority for positive decisions.
+  // Deterministic logic is reject-only; everything else goes to the semantic classifier.
   return {
     analysisFlags,
     score,
     eligibilityState: "UNSURE",
-    reason: `Deterministic review needed: score ${score}; ${describeFlags(analysisFlags)}.`,
+    reason: `Pending LLM evaluation: score ${score}; ${describeFlags(analysisFlags)}.`,
     shouldRunSemanticClassifier: true
   };
 }

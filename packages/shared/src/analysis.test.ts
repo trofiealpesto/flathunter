@@ -37,11 +37,11 @@ describe("evaluateListingDeterministically", () => {
     expect(result.shouldRunSemanticClassifier).toBe(false);
   });
 
-  it("returns a strong deterministic match for high-scoring long-term listings", () => {
+  it("routes high-scoring long-term listings to the LLM (no deterministic MATCH)", () => {
     const result = evaluateListingDeterministically(
       {
-        title: "Bright long-term apartment for couples",
-        description: "Long-term rental with balcony in Mitte, ideal for couples.",
+        title: "Bright long-term apartment",
+        description: "Long-term rental with balcony in Mitte.",
         rentWarm: 1450,
         district: "Mitte",
         rooms: 3,
@@ -51,8 +51,9 @@ describe("evaluateListingDeterministically", () => {
       defaultAppSettings
     );
 
-    expect(result.eligibilityState).toBe("MATCH");
+    // Deterministic can no longer auto-MATCH; the LLM is the final authority.
+    expect(result.eligibilityState).toBe("UNSURE");
     expect(result.score).toBeGreaterThanOrEqual(78);
-    expect(result.shouldRunSemanticClassifier).toBe(false);
+    expect(result.shouldRunSemanticClassifier).toBe(true);
   });
 });

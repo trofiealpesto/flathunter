@@ -37,6 +37,13 @@ export const englishListingAnalystSchema = translationResultSchema.extend({
 
 export type EnglishListingAnalyst = z.infer<typeof englishListingAnalystSchema>;
 
+// Unified evaluation schema: single Gemini call produces classification + translation + analysis + fit score.
+export const unifiedEvaluationSchema = englishListingAnalystSchema.extend({
+  fitScore: z.number().int().min(0).max(100).optional()
+});
+
+export type UnifiedEvaluation = z.infer<typeof unifiedEvaluationSchema>;
+
 export const semanticClassificationJsonSchema = {
   type: "object",
   additionalProperties: false,
@@ -122,6 +129,40 @@ export const englishListingAnalystJsonSchema = {
     "eligibilityState",
     "reason",
     "flags",
+    "summary",
+    "fitNote"
+  ]
+} as const;
+
+// JSON schema for the unified evaluation (classification + translation + analysis + fitScore).
+export const unifiedEvaluationJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    sourceLanguage: { type: "string" },
+    translatedTitle: { type: ["string", "null"] },
+    translatedDescription: { type: ["string", "null"] },
+    eligibilityState: { type: "string", enum: ["MATCH", "UNSURE", "REJECT"] },
+    reason: { type: "string" },
+    flags: {
+      type: "array",
+      items: {
+        type: "string",
+        enum: ["LONG_TERM", "SHORT_TERM", "WBS_REQUIRED", "COUPLE_FRIENDLY", "FURNISHED", "NO_REGISTRATION", "PET_FRIENDLY"]
+      }
+    },
+    fitScore: { type: "integer", minimum: 0, maximum: 100 },
+    summary: { type: "string" },
+    fitNote: { type: "string" }
+  },
+  required: [
+    "sourceLanguage",
+    "translatedTitle",
+    "translatedDescription",
+    "eligibilityState",
+    "reason",
+    "flags",
+    "fitScore",
     "summary",
     "fitNote"
   ]

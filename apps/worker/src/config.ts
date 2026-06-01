@@ -20,7 +20,7 @@ const envSchema = z.object({
   PORTAL_SECRETS_KEY: z.string().min(16),
   GEMINI_API_KEY: optionalStringSchema,
   GEMINI_API_BASE_URL: z.string().url().default("https://generativelanguage.googleapis.com/v1beta"),
-  GEMINI_CLASSIFIER_MAX_PER_RUN: z.coerce.number().int().nonnegative().default(4),
+  GEMINI_CLASSIFIER_MAX_PER_RUN: z.coerce.number().int().nonnegative().default(10),
   GEMINI_CLASSIFIER_FALLBACK_MAX_PER_RUN: z.coerce.number().int().nonnegative().default(1),
   GEMINI_CLASSIFIER_MIN_DELAY_MS: z.coerce.number().int().nonnegative().default(8_000),
   GEMINI_CLASSIFIER_RETRY_COOLDOWN_MS: z.coerce.number().int().nonnegative().default(30 * 60_000),

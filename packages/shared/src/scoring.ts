@@ -58,17 +58,7 @@ export function computeDeterministicScore(
     score += 6;
   }
 
-  if (analysisFlags.includes("couple_friendly")) {
-    score += 4;
-  }
-
-  if (!listing.hasBalcony && analysisFlags.includes("balcony_mentioned")) {
-    score += 2;
-  }
-
-  if (!listing.hasElevator && analysisFlags.includes("elevator_mentioned")) {
-    score += 1;
-  }
+  // couple_friendly is not a user preference and was removed as a scoring signal to avoid bias.
 
   if (!listing.isFurnished && analysisFlags.includes("furnished_text")) {
     score -= 4;

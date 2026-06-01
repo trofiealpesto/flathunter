@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 export const llmAnalysisPromptVersion = "english-analyst-v2";
-export const semanticClassificationPromptVersion = "eligibility-classifier-v4";
+// Bumped to "unified-v1": classifier and analyst merged into one call; deterministic MATCH removed.
+export const semanticClassificationPromptVersion = "unified-v1";
 
 export const llmErrorKindSchema = z.enum([
   "timeout",

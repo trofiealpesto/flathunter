@@ -3,12 +3,12 @@ import { createHash } from "node:crypto";
 import type { AnalysisFlag, EligibilityState, ListingSummary } from "./listings";
 import type { AppSettings } from "./settings";
 import type { LlmAnalysis, LlmErrorKind } from "./llm-analysis";
-import type { EnglishListingAnalyst, SemanticClassification } from "./semantic";
+import type { EnglishListingAnalyst, SemanticClassification, UnifiedEvaluation } from "./semantic";
 import {
   englishListingAnalystJsonSchema,
   englishListingAnalystSchema,
-  semanticClassificationJsonSchema,
-  semanticClassificationSchema
+  unifiedEvaluationJsonSchema,
+  unifiedEvaluationSchema
 } from "./semantic";
 import { llmAnalysisPromptVersion, semanticClassificationPromptVersion } from "./llm-analysis";
 
@@ -112,6 +112,8 @@ export type EnglishAnalystDeps = LlmRuntimeDeps & {
 };
 
 export type EligibilityClassificationResult = SemanticClassification & {
+  /** LLM-generated analysis (translation + summary + fitNote). Null when LLM was unavailable. */
+  llmAnalysis: LlmAnalysis | null;
   inputFingerprint: string;
   model: string | null;
   usedFallback: boolean;
@@ -180,8 +182,9 @@ function isPreferredDistrict(listing: LlmListingInput, settings: AppSettings) {
 }
 
 function countPositiveAnalysisSignals(flags: AnalysisFlag[]) {
+  // couple_friendly excluded: not a user preference, was causing false MATCHes
   return flags.filter((flag) =>
-    ["long_term", "couple_friendly", "balcony_mentioned", "elevator_mentioned"].includes(flag)
+    ["long_term", "balcony_mentioned", "elevator_mentioned"].includes(flag)
   ).length;
 }
 
@@ -285,27 +288,47 @@ export function getRecommendedLlmTimeoutProfile(classifierModel: string, analyst
   };
 }
 
-function buildClassifierPrompt(
+function buildUnifiedEvaluationPrompt(
   listing: LlmListingInput,
   settings: AppSettings,
   context: ListingEligibilityContext,
   compact: boolean
 ) {
   const lines = [
-    "Classify a Berlin rental listing for a private apartment search dashboard.",
-    "Return strict JSON and do not include commentary outside JSON.",
-    "Decision policy:",
-    "- MATCH when the listing clearly fits the search profile and does not conflict with avoid rules.",
-    "- REJECT when the listing clearly conflicts with avoid rules or is obviously a poor fit.",
-    "- UNSURE when the text is ambiguous, contradictory, missing critical detail, or only has weak title/metadata evidence.",
-    "Evidence policy:",
-    "- Treat rent, rooms, size, district, and deterministic score as supporting evidence, not proof of semantic fit.",
-    "- Do not infer long-term rental, private-apartment fit, or couple suitability from metadata alone.",
-    "- If the description is empty and the deterministic score is below 80, keep UNSURE unless the title explicitly proves the rental type and no avoid-rule conflict.",
-    "- If the description is empty and the deterministic score is 80 or higher, MATCH is allowed only when the title explicitly indicates an apartment/flat/Wohnung and the core profile fields fit.",
-    "- Set LONG_TERM only when title or description explicitly indicates a normal long-term rental, indefinite lease, or no short-term/sublet constraint.",
-    "- Do not set LONG_TERM from words like apartment, flat, Wohnung, rent, rooms, price, or district alone.",
-    "- For UNSURE, use an empty flags array unless a flag is explicitly stated in the title or description.",
+    "You are a strict Berlin rental listing analyst and classifier.",
+    "Return strict JSON matching the schema. Output ONLY valid JSON — no other text.",
+    "You produce an eligibility decision AND a brief English analysis in one response.",
+    "",
+    "HARD REJECT RULES — each fires independently and overrides all other positives, no exceptions:",
+    "- Short-term, temporary, or sublet: Zwischenmiete, Untermiete, befristet, auf Zeit, nur für X Monate, for X months, limited-period, short-term sublet → REJECT + SHORT_TERM flag.",
+    "- WBS required (Wohnberechtigungsschein) → REJECT + WBS_REQUIRED flag.",
+    "- Apartment swap (Wohnungstausch, Tauschwohnung) → REJECT.",
+    "- Room-only or shared flat (WG-Zimmer, roommate, shared room) → REJECT.",
+    "- Any item in the Avoid list below explicitly matches the listing content → REJECT.",
+    "",
+    "ELIGIBILITY DECISION:",
+    "- MATCH: no hard reject fires AND listing clearly fits the search profile.",
+    "- REJECT: any hard reject fires, OR listing clearly misses the core profile.",
+    "- UNSURE: rental type ambiguous, critical details missing, or contradictory signals.",
+    "",
+    "WHAT TO COUNT AS POSITIVE (credit ONLY what the user asked for):",
+    "- Credit only attributes from the must-match list and notes.",
+    "- Do NOT treat couple-friendliness, furnishing, balcony, or elevator as positive signals unless explicitly requested.",
+    "- LONG_TERM flag: set only when explicit long-term language appears (langfristig, unbefristet, long-term lease, permanent rental). Never infer from 'Wohnung' or 'apartment' alone.",
+    "- SHORT_TERM flag: set whenever the listing is time-limited, temporary, a sublet, or for a short period.",
+    "- No description: default to UNSURE unless the title and metadata make MATCH or REJECT evident.",
+    "",
+    "fitScore 0-100 (semantic fit, NOT metadata alone):",
+    "- MATCH 65-100: borderline MATCH ~65, strong MATCH 85+.",
+    "- UNSURE 35-64.",
+    "- REJECT 0-34. Example: a 2-month furnished sublet → fitScore ≤ 10.",
+    "",
+    "TRANSLATION AND ANALYSIS (always required):",
+    "- Detect source language.",
+    "- If not English: translate title and description into concise factual English. If already English: use null for translatedTitle and translatedDescription.",
+    "- summary: 2-3 sentences of key facts about the listing.",
+    "- fitNote: 1 sentence explaining the eligibility verdict.",
+    "",
     `Title: ${truncatePromptText(listing.title, PROMPT_TITLE_MAX_CHARS)}`,
     `Description: ${truncatePromptText(listing.description, PROMPT_DESCRIPTION_MAX_CHARS)}`,
     `Description present: ${listing.description?.trim() ? "yes" : "no"}`,
@@ -318,24 +341,17 @@ function buildClassifierPrompt(
     `Rooms: ${stringifyPromptValue(listing.rooms)}`,
     `Size sqm: ${stringifyPromptValue(listing.sizeSqm)}`,
     `Available from: ${stringifyPromptValue(listing.availableFrom)}`,
-    `Core scoring profile: max warm rent ${settings.scoring.maxWarmRent}, minimum size ${settings.scoring.minimumSizeSqm} sqm, minimum rooms ${settings.scoring.minimumRooms}`,
+    `Core profile: max warm rent ${settings.scoring.maxWarmRent} EUR, min size ${settings.scoring.minimumSizeSqm} sqm, min rooms ${settings.scoring.minimumRooms}`,
     `Deterministic score: ${context.deterministicScore}`,
-    `Deterministic reason: ${context.deterministicReason}`,
-    `Deterministic analysis flags: ${stringifyPromptValue(context.analysisFlags)}`,
+    `Pre-filter flags: ${stringifyPromptValue(context.analysisFlags)}`,
     `Must match: ${stringifyPromptValue(settings.semanticRules.mustMatch)}`,
     `Avoid: ${stringifyPromptValue(settings.semanticRules.avoid)}`,
-    `Notes: ${stringifyPromptValue(settings.semanticRules.notes)}`,
-    "fitScore policy:",
-    "- Return fitScore 0-100: how well this listing fits the search profile and rules.",
-    "- Base fitScore on semantic content (description, title, rental type, terms) — not metadata alone.",
-    "- 100 = ideal fit for all must-match rules and preferences. 0 = clear reject or completely wrong type.",
-    "- MATCH range: 65-100. UNSURE range: 35-64. REJECT range: 0-34.",
-    "- Calibrate within each eligibility bucket: a borderline MATCH scores ~65, a strong MATCH scores 85+."
+    `Notes: ${stringifyPromptValue(settings.semanticRules.notes)}`
   ];
 
   if (compact) {
     return [
-      "Compact retry mode. Prefer MATCH or REJECT only when evidence is adequate; keep title-only or metadata-only listings UNSURE.",
+      "Compact retry mode. Be decisive: MATCH or REJECT when evidence is clear; UNSURE only when genuinely ambiguous. Keep translations brief.",
       ...lines
     ].join("\n");
   }
@@ -642,6 +658,25 @@ function buildClassifierUnavailableFallback(
   };
 }
 
+function buildLlmAnalysisFromEvaluation(
+  result: UnifiedEvaluation,
+  model: string,
+  inputFingerprint: string
+): LlmAnalysis {
+  return {
+    sourceLanguage: result.sourceLanguage,
+    translatedTitle: result.translatedTitle,
+    translatedDescription: result.translatedDescription,
+    summary: result.summary,
+    fitNote: result.fitNote,
+    model,
+    translationModel: null,
+    promptVersion: semanticClassificationPromptVersion,
+    inputFingerprint,
+    updatedAt: new Date().toISOString()
+  };
+}
+
 export function getLlmErrorKind(error: unknown): LlmErrorKind {
   if (error instanceof GeminiStructuredError) {
     return error.kind;
@@ -723,56 +758,53 @@ export async function classifyListingEligibility(
   deps: ListingEligibilityDeps
 ): Promise<EligibilityClassificationResult> {
   const inputFingerprint = buildSemanticClassificationFingerprint(listing, settings, context);
-  const timeoutMs = deps.timeoutMs ?? DEFAULT_CLASSIFIER_TIMEOUT_MS;
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_ANALYST_TIMEOUT_MS; // unified call does more work
   const retryTimeoutMs = deps.retryTimeoutMs ?? Math.round(timeoutMs * 1.4);
   const fallbackModel = getConfiguredClassifierFallbackModel(settings, deps);
   const fallbackTimeoutMs = deps.fallbackTimeoutMs ?? timeoutMs;
   let didRetry = false;
 
-  async function runClassifier(model: string, compact: boolean, requestTimeoutMs: number) {
+  async function runEvaluation(model: string, compact: boolean, requestTimeoutMs: number): Promise<UnifiedEvaluation> {
     return callGeminiJson({
       apiKey: deps.apiKey,
       baseUrl: deps.baseUrl,
       model,
       fetchImpl: deps.fetchImpl,
       timeoutMs: requestTimeoutMs,
-      responseJsonSchema: semanticClassificationJsonSchema,
-      systemInstruction: "You are a strict Berlin rental listing classifier. Output only valid JSON.",
-      userPrompt: buildClassifierPrompt(listing, settings, context, compact),
-      parse: (value) => semanticClassificationSchema.parse(value)
+      responseJsonSchema: unifiedEvaluationJsonSchema,
+      systemInstruction: "You are a strict Berlin rental listing analyst and classifier. Output only valid JSON.",
+      userPrompt: buildUnifiedEvaluationPrompt(listing, settings, context, compact),
+      parse: (value) => unifiedEvaluationSchema.parse(value)
     });
   }
 
-  async function tryClassifierFallback() {
+  async function tryEvaluationFallback(): Promise<{ result: UnifiedEvaluation | null; errorKind: LlmErrorKind | null }> {
     if (!fallbackModel) {
-      return {
-        result: null as SemanticClassification | null,
-        errorKind: null as LlmErrorKind | null
-      };
+      return { result: null, errorKind: null };
     }
 
     try {
-      return {
-        result: await runClassifier(fallbackModel, false, fallbackTimeoutMs),
-        errorKind: null
-      };
+      return { result: await runEvaluation(fallbackModel, false, fallbackTimeoutMs), errorKind: null };
     } catch (fallbackError) {
-      return {
-        result: null,
-        errorKind: getLlmErrorKind(fallbackError)
-      };
+      return { result: null, errorKind: getLlmErrorKind(fallbackError) };
     }
   }
 
-  async function buildSuccessfulResult(result: SemanticClassification, model: string, didPrimaryRetry: boolean) {
+  function toClassification(full: UnifiedEvaluation): SemanticClassification {
+    return { eligibilityState: full.eligibilityState, reason: full.reason, flags: full.flags, fitScore: full.fitScore };
+  }
+
+  async function buildSuccessfulResult(full: UnifiedEvaluation, model: string, didPrimaryRetry: boolean): Promise<EligibilityClassificationResult> {
+    const result = toClassification(full);
     const classifierFallbackWanted = shouldEscalateClassifierResult(result, null, settings, context, deps);
 
     if (classifierFallbackWanted && deps.allowClassifierFallback !== false) {
-      const fallback = await tryClassifierFallback();
+      const fallback = await tryEvaluationFallback();
 
       if (fallback.result && fallbackModel) {
         return {
-          ...fallback.result,
+          ...toClassification(fallback.result),
+          llmAnalysis: buildLlmAnalysisFromEvaluation(fallback.result, fallbackModel, inputFingerprint),
           inputFingerprint,
           model: fallbackModel,
           usedFallback: false,
@@ -788,6 +820,7 @@ export async function classifyListingEligibility(
 
       return {
         ...result,
+        llmAnalysis: buildLlmAnalysisFromEvaluation(full, model, inputFingerprint),
         inputFingerprint,
         model,
         usedFallback: false,
@@ -803,6 +836,7 @@ export async function classifyListingEligibility(
 
     return {
       ...result,
+      llmAnalysis: buildLlmAnalysisFromEvaluation(full, model, inputFingerprint),
       inputFingerprint,
       model,
       usedFallback: false,
@@ -816,15 +850,16 @@ export async function classifyListingEligibility(
     };
   }
 
-  async function buildUnavailableResult(primaryErrorKind: LlmErrorKind) {
+  async function buildUnavailableResult(primaryErrorKind: LlmErrorKind): Promise<EligibilityClassificationResult> {
     const classifierFallbackWanted = shouldEscalateClassifierResult(null, primaryErrorKind, settings, context, deps);
 
     if (classifierFallbackWanted && deps.allowClassifierFallback !== false) {
-      const fallback = await tryClassifierFallback();
+      const fallback = await tryEvaluationFallback();
 
       if (fallback.result && fallbackModel) {
         return {
-          ...fallback.result,
+          ...toClassification(fallback.result),
+          llmAnalysis: buildLlmAnalysisFromEvaluation(fallback.result, fallbackModel, inputFingerprint),
           inputFingerprint,
           model: fallbackModel,
           usedFallback: false,
@@ -843,6 +878,7 @@ export async function classifyListingEligibility(
 
       return {
         ...deterministicFallback,
+        llmAnalysis: null,
         inputFingerprint,
         model: null,
         usedFallback: true,
@@ -860,6 +896,7 @@ export async function classifyListingEligibility(
 
     return {
       ...fallback,
+      llmAnalysis: null,
       inputFingerprint,
       model: null,
       usedFallback: true,
@@ -874,7 +911,7 @@ export async function classifyListingEligibility(
   }
 
   try {
-    const result = await runClassifier(deps.classifierModel, false, timeoutMs);
+    const result = await runEvaluation(deps.classifierModel, false, timeoutMs);
 
     return buildSuccessfulResult(result, deps.classifierModel, false);
   } catch (error) {
@@ -882,7 +919,7 @@ export async function classifyListingEligibility(
       didRetry = true;
 
       try {
-        const result = await runClassifier(deps.classifierModel, true, retryTimeoutMs);
+        const result = await runEvaluation(deps.classifierModel, true, retryTimeoutMs);
 
         return buildSuccessfulResult(result, deps.classifierModel, didRetry);
       } catch (retryError) {

@@ -113,6 +113,7 @@ describe("runWorkerOnce", () => {
       eligibilityState: "UNSURE",
       reason: "Semantic classifier unavailable",
       flags: [],
+      llmAnalysis: null,
       inputFingerprint: "test-fingerprint",
       usedFallback: true,
       errorKind: "timeout",

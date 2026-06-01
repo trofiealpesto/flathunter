@@ -19,6 +19,7 @@ import {
   formatRuntimeError,
   getRecommendedLlmTimeoutProfile,
   isActiveSourcePortal,
+  type LlmAnalysis,
   type Portal,
   type SourceRunStatus
 } from "@flathunter/shared";
@@ -131,6 +132,7 @@ async function evaluateReviewQueue({
     let semanticFlags: string[] = candidate.semanticFlags;
     let semanticModel: string | null = candidate.semanticModel;
     let semanticFitScore: number | null | undefined = undefined;
+    let llmAnalysis: LlmAnalysis | null | undefined = undefined;
 
     const semanticClassifierEnabled = settings.runtime.enableSemanticClassifier && deterministic.shouldRunSemanticClassifier;
     const inputFingerprint = buildSemanticClassificationFingerprint(candidate, settings, {
@@ -202,9 +204,9 @@ async function evaluateReviewQueue({
         analystModel: settings.runtime.llmAnalystModel,
         fallbackModel: settings.runtime.llmClassifierFallbackModel ?? settings.runtime.llmClassifierModel,
         fetchImpl,
-        timeoutMs: timeouts.classificationTimeoutMs,
-        retryTimeoutMs: timeouts.classificationRetryTimeoutMs,
-        fallbackTimeoutMs: fallbackTimeouts.classificationTimeoutMs,
+        timeoutMs: timeouts.analystTimeoutMs, // unified call produces translation+summary, needs more time
+        retryTimeoutMs: timeouts.analystTimeoutMs,
+        fallbackTimeoutMs: fallbackTimeouts.analystTimeoutMs,
         allowClassifierFallback: !stopClassifierFallbackForRun && hasClassifierFallbackBudget
       });
 
@@ -232,6 +234,7 @@ async function evaluateReviewQueue({
         semanticUpdatedAt = cacheSemanticResult ? new Date() : null;
         semanticLastErrorKind = null;
         semanticLastErrorAt = null;
+        llmAnalysis = semantic.llmAnalysis ?? null;
       } else {
         semanticFlags = semantic.flags;
         semanticModel = null;
@@ -266,7 +269,13 @@ async function evaluateReviewQueue({
       semanticInputFingerprint,
       semanticUpdatedAt,
       semanticLastErrorKind,
-      semanticLastErrorAt
+      semanticLastErrorAt,
+      // When LLM succeeds, persist the analysis and clear any prior LLM error.
+      ...(llmAnalysis !== undefined ? {
+        llmAnalysis,
+        llmLastErrorKind: llmAnalysis ? null : undefined,
+        llmLastErrorAt: llmAnalysis ? null : undefined
+      } : {})
     });
   }
 

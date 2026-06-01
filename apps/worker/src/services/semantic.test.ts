@@ -69,6 +69,26 @@ function buildGeminiResponse(payload: unknown) {
   );
 }
 
+// Unified evaluation responses must include translation + analysis + fitScore fields.
+function buildUnifiedPayload(
+  eligibilityState: "MATCH" | "UNSURE" | "REJECT",
+  reason: string,
+  flags: string[] = [],
+  fitScore?: number
+) {
+  return {
+    sourceLanguage: "en",
+    translatedTitle: null,
+    translatedDescription: null,
+    eligibilityState,
+    reason,
+    flags,
+    fitScore: fitScore ?? (eligibilityState === "MATCH" ? 80 : eligibilityState === "REJECT" ? 15 : 50),
+    summary: `Test summary for ${eligibilityState} listing.`,
+    fitNote: reason
+  };
+}
+
 describe("classifyListingEligibility", () => {
   it("includes classifier fallback settings in the semantic fingerprint", () => {
     const context = {
@@ -121,11 +141,9 @@ describe("classifyListingEligibility", () => {
 
   it("classifies in a single Gemini request", async () => {
     const fetchImpl = vi.fn(async () =>
-      buildGeminiResponse({
-        eligibilityState: "MATCH",
-        reason: "The listing is a clear long-term apartment fit.",
-        flags: ["LONG_TERM", "COUPLE_FRIENDLY"]
-      })
+      buildGeminiResponse(
+        buildUnifiedPayload("MATCH", "The listing is a clear long-term apartment fit.", ["LONG_TERM"])
+      )
     ) as unknown as typeof fetch;
 
     const result = await classifyListingEligibility(
@@ -160,18 +178,14 @@ describe("classifyListingEligibility", () => {
   it("escalates high-score Gemma UNSURE results to the Flash fallback", async () => {
     const fetchImpl = vi.fn(async (url: RequestInfo | URL) => {
       if (String(url).includes("gemma-4-26b-a4b-it")) {
-        return buildGeminiResponse({
-          eligibilityState: "UNSURE",
-          reason: "The primary model wants a premium check.",
-          flags: []
-        });
+        return buildGeminiResponse(
+          buildUnifiedPayload("UNSURE", "The primary model wants a premium check.")
+        );
       }
 
-      return buildGeminiResponse({
-        eligibilityState: "MATCH",
-        reason: "Flash confirms the listing is a strong fit.",
-        flags: ["LONG_TERM"]
-      });
+      return buildGeminiResponse(
+        buildUnifiedPayload("MATCH", "Flash confirms the listing is a strong fit.", ["LONG_TERM"])
+      );
     }) as unknown as typeof fetch;
 
     const result = await classifyListingEligibility(
@@ -202,11 +216,9 @@ describe("classifyListingEligibility", () => {
 
   it("does not escalate low-score Gemma UNSURE results", async () => {
     const fetchImpl = vi.fn(async () =>
-      buildGeminiResponse({
-        eligibilityState: "UNSURE",
-        reason: "The listing is too ambiguous for premium fallback.",
-        flags: []
-      })
+      buildGeminiResponse(
+        buildUnifiedPayload("UNSURE", "The listing is too ambiguous for premium fallback.")
+      )
     ) as unknown as typeof fetch;
 
     const result = await classifyListingEligibility(
@@ -254,11 +266,9 @@ describe("classifyListingEligibility", () => {
         );
       }
 
-      return buildGeminiResponse({
-        eligibilityState: "MATCH",
-        reason: `Flash recovered after ${callCount} calls.`,
-        flags: ["LONG_TERM"]
-      });
+      return buildGeminiResponse(
+        buildUnifiedPayload("MATCH", `Flash recovered after ${callCount} calls.`, ["LONG_TERM"])
+      );
     }) as unknown as typeof fetch;
 
     const result = await classifyListingEligibility(
@@ -344,11 +354,9 @@ describe("classifyListingEligibility", () => {
         );
       }
 
-      return buildGeminiResponse({
-        eligibilityState: "REJECT",
-        reason: "The listing conflicts with the configured avoid rules.",
-        flags: ["SHORT_TERM"]
-      });
+      return buildGeminiResponse(
+        buildUnifiedPayload("REJECT", "The listing conflicts with the configured avoid rules.", ["SHORT_TERM"])
+      );
     }) as unknown as typeof fetch;
 
     const result = await classifyListingEligibility(

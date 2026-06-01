@@ -349,6 +349,7 @@ describe("api app", () => {
                       eligibilityState: "MATCH",
                       reason: "Clear apartment fit.",
                       flags: ["LONG_TERM"],
+                      fitScore: 82,
                       summary: "Bright Berlin apartment with a strong long-term fit.",
                       fitNote: "Suitable for the configured search because the price, size, and apartment framing line up."
                     })
@@ -425,8 +426,8 @@ describe("api app", () => {
     });
 
     expect(response.statusCode).toBe(502);
-    expect(response.json()).toEqual({
-      message: "API key not valid. Please pass a valid API key."
+    expect(response.json()).toMatchObject({
+      message: expect.stringContaining("evaluation failed")
     });
 
     const listing = await app.inject({
