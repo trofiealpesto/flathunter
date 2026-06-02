@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 
 import type { AnalysisFlag, EligibilityState, ListingSummary } from "./listings";
-import type { AppSettings } from "./settings";
+import type { AppSettings, LlmProvider } from "./settings";
+import { providerDefaults } from "./settings";
 import type { LlmAnalysis, LlmErrorKind } from "./llm-analysis";
 import type { EnglishListingAnalyst, SemanticClassification, UnifiedEvaluation } from "./semantic";
 import {
@@ -77,6 +78,14 @@ type GeminiGenerateContentResponse = {
   };
 };
 
+type OpenAiChatCompletionResponse = {
+  choices?: Array<{
+    message?: {
+      content?: string | null;
+    };
+  }>;
+};
+
 const semanticFlagByAnalysisFlag: Partial<Record<AnalysisFlag, SemanticClassification["flags"][number]>> = {
   wbs_required: "WBS_REQUIRED",
   temporary_sublet: "SHORT_TERM",
@@ -86,8 +95,14 @@ const semanticFlagByAnalysisFlag: Partial<Record<AnalysisFlag, SemanticClassific
 };
 
 export type LlmRuntimeDeps = {
+  /** Gemini API key — used for the analyst model and when llmProvider = "gemini". */
   apiKey?: string | null;
+  /** Gemini base URL — used for the analyst model and when llmProvider = "gemini". */
   baseUrl?: string | null;
+  /** API key for the non-Gemini classifier provider (Groq, Cerebras…). Ignored when llmProvider = "gemini". */
+  classifierApiKey?: string | null;
+  /** Base URL for the non-Gemini classifier provider. Falls back to the provider's known default when unset. */
+  classifierBaseUrl?: string | null;
   classifierModel: string;
   analystModel: string;
   fetchImpl: typeof fetch;
@@ -558,6 +573,147 @@ async function callGeminiJson<T>({
   }
 }
 
+/**
+ * OpenAI-compatible JSON caller (Groq, Cerebras, etc.).
+ * Uses /chat/completions with response_format: json_schema for structured output.
+ */
+async function callOpenAiCompatibleJson<T>({
+  apiKey,
+  baseUrl,
+  model,
+  fetchImpl,
+  timeoutMs,
+  responseJsonSchema,
+  systemInstruction,
+  userPrompt,
+  parse
+}: {
+  apiKey?: string | null;
+  baseUrl: string;
+  model: string;
+  fetchImpl: typeof fetch;
+  timeoutMs: number;
+  responseJsonSchema: Record<string, unknown>;
+  systemInstruction: string;
+  userPrompt: string;
+  parse: (value: unknown) => T;
+}) {
+  if (!apiKey?.trim()) {
+    throw new GeminiStructuredError(
+      "auth_error",
+      "LLM classifier API key is missing. Set the provider API key (e.g. GROQ_API_KEY) for the worker process."
+    );
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetchImpl(`${baseUrl.replace(/\/+$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.1,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "classification",
+            strict: true,
+            schema: responseJsonSchema
+          }
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const payload = await response.text();
+      const message = extractGeminiErrorMessage(payload) ?? `LLM request failed with status ${response.status}.`;
+      throw new GeminiStructuredError(mapGeminiHttpErrorKind(response.status), message, response.status);
+    }
+
+    const payload = (await response.json()) as OpenAiChatCompletionResponse;
+    const content = payload.choices?.[0]?.message?.content?.trim() ?? "";
+
+    if (!content) {
+      throw new GeminiStructuredError("empty_response", "LLM classifier returned an empty response.");
+    }
+
+    let parsedJson: unknown;
+    try {
+      parsedJson = JSON.parse(content);
+    } catch {
+      throw new GeminiStructuredError("invalid_json", "LLM classifier returned invalid JSON.");
+    }
+
+    try {
+      return parse(parsedJson);
+    } catch {
+      throw new GeminiStructuredError("invalid_json", "LLM classifier returned schema-invalid JSON.");
+    }
+  } catch (error) {
+    if (error instanceof GeminiStructuredError) {
+      throw error;
+    }
+
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new GeminiStructuredError("timeout", "LLM classifier request timed out.");
+    }
+
+    throw new GeminiStructuredError(
+      "transport_error",
+      error instanceof Error ? error.message : "LLM classifier request failed."
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Dispatcher: routes the classifier call to the right HTTP adapter based on llmProvider.
+ * The analyst always uses callGeminiJson directly (native responseJsonSchema support).
+ */
+async function callClassifierLlmJson<T>(
+  provider: LlmProvider,
+  deps: LlmRuntimeDeps,
+  args: {
+    model: string;
+    timeoutMs: number;
+    responseJsonSchema: Record<string, unknown>;
+    systemInstruction: string;
+    userPrompt: string;
+    parse: (value: unknown) => T;
+  }
+): Promise<T> {
+  if (provider === "gemini") {
+    return callGeminiJson({
+      apiKey: deps.apiKey,
+      baseUrl: deps.baseUrl,
+      fetchImpl: deps.fetchImpl,
+      ...args
+    });
+  }
+
+  const providerBaseUrl =
+    deps.classifierBaseUrl?.trim() ||
+    providerDefaults[provider].baseUrl;
+
+  return callOpenAiCompatibleJson({
+    apiKey: deps.classifierApiKey,
+    baseUrl: providerBaseUrl,
+    fetchImpl: deps.fetchImpl,
+    ...args
+  });
+}
+
 function shouldRetryClassifier(error: unknown) {
   if (!(error instanceof GeminiStructuredError)) {
     return false;
@@ -764,12 +920,11 @@ export async function classifyListingEligibility(
   const fallbackTimeoutMs = deps.fallbackTimeoutMs ?? timeoutMs;
   let didRetry = false;
 
+  const provider: LlmProvider = (settings.runtime.llmProvider as LlmProvider) ?? "gemini";
+
   async function runEvaluation(model: string, compact: boolean, requestTimeoutMs: number): Promise<UnifiedEvaluation> {
-    return callGeminiJson({
-      apiKey: deps.apiKey,
-      baseUrl: deps.baseUrl,
+    return callClassifierLlmJson(provider, deps, {
       model,
-      fetchImpl: deps.fetchImpl,
       timeoutMs: requestTimeoutMs,
       responseJsonSchema: unifiedEvaluationJsonSchema,
       systemInstruction: "You are a strict Berlin rental listing analyst and classifier. Output only valid JSON.",

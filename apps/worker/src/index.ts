@@ -118,7 +118,23 @@ async function evaluateReviewQueue({
 }) {
   const settings = await getSettings(db);
   const candidates = await listListingsForEvaluation(db);
-  const semanticClassifierConfigured = Boolean(env.GEMINI_API_KEY?.trim());
+  const provider = settings.runtime.llmProvider;
+
+  // Resolve API key for the selected classifier provider.
+  const classifierApiKey =
+    provider === "groq"
+      ? env.GROQ_API_KEY
+      : provider === "cerebras"
+        ? env.CEREBRAS_API_KEY
+        : env.GEMINI_API_KEY;
+  const classifierBaseUrl =
+    provider === "groq"
+      ? env.GROQ_API_BASE_URL
+      : provider === "cerebras"
+        ? env.CEREBRAS_API_BASE_URL
+        : env.GEMINI_API_BASE_URL;
+
+  const semanticClassifierConfigured = Boolean(classifierApiKey?.trim());
   let stopSemanticClassifierForRun = !semanticClassifierConfigured;
   let stopClassifierFallbackForRun = false;
   let semanticClassifierCalls = 0;
@@ -200,6 +216,10 @@ async function evaluateReviewQueue({
       }, {
         apiKey: env.GEMINI_API_KEY,
         baseUrl: env.GEMINI_API_BASE_URL,
+        // Non-Gemini provider key/URL for the classifier (Groq, Cerebras…).
+        // For Gemini provider these are unused; the dispatcher routes via apiKey/baseUrl.
+        classifierApiKey,
+        classifierBaseUrl,
         classifierModel: settings.runtime.llmClassifierModel,
         analystModel: settings.runtime.llmAnalystModel,
         fallbackModel: settings.runtime.llmClassifierFallbackModel ?? settings.runtime.llmClassifierModel,

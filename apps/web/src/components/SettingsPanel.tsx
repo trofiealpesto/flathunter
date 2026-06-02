@@ -1,4 +1,5 @@
 import type { AppSettings } from "@flathunter/shared";
+import { providerDefaults } from "@flathunter/shared";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,12 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { FormField } from "./FormField";
 import { SurfaceCard } from "./SurfaceCard";
+
+const providerLabels: Record<keyof typeof providerDefaults, string> = {
+  gemini: "Gemini (Google)",
+  groq: "Groq",
+  cerebras: "Cerebras"
+};
 
 type SettingsPanelProps = {
   settings: AppSettings | null;
@@ -59,6 +66,35 @@ export function SettingsPanel({ settings, onChange, onSave }: SettingsPanelProps
             type="number"
             value={settings.scoring.minimumRooms}
           />
+        </FormField>
+        <FormField label="Classifier provider">
+          <Select
+            onValueChange={(value) => {
+              const provider = value as keyof typeof providerDefaults;
+              const defaults = providerDefaults[provider];
+              onChange({
+                ...settings,
+                runtime: {
+                  ...settings.runtime,
+                  llmProvider: provider,
+                  llmClassifierModel: defaults.classifierModel,
+                  llmClassifierFallbackModel: defaults.classifierFallbackModel
+                }
+              });
+            }}
+            value={settings.runtime.llmProvider}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(providerDefaults) as Array<keyof typeof providerDefaults>).map((p) => (
+                <SelectItem key={p} value={p}>
+                  {providerLabels[p]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </FormField>
         <FormField htmlFor="settings-classifier-model" label="Primary classifier model">
           <Input

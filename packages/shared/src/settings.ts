@@ -1,15 +1,39 @@
 import { z } from "zod";
 import { officeLocationSchema } from "./geo";
 
-// Free-tier models: gemini-2.5-flash-lite (primary, high RPM free quota) + gemini-2.5-flash (fallback).
-// Strict free-only alternative: gemma-3-27b-it (never billable), but lower quality.
-export const defaultClassifierPrimaryModel = "gemini-2.5-flash-lite";
-export const defaultClassifierFallbackModel = "gemini-2.5-flash";
-export const defaultClassifierFallbackMinScore = 80;
+// Analyst always stays on Gemini (native responseJsonSchema support).
 export const defaultAnalystModel = "gemini-2.5-flash";
 
+// Free-tier defaults per provider. classifierModel = primary; classifierFallbackModel = escalation model.
+export const providerDefaults = {
+  gemini: {
+    classifierModel: "gemini-2.5-flash-lite",
+    classifierFallbackModel: "gemini-2.5-flash",
+    baseUrl: "https://generativelanguage.googleapis.com/v1beta"
+  },
+  groq: {
+    // llama-3.1-8b-instant: 14,400 RPD free; fallback to 70B (1,000 RPD free).
+    classifierModel: "llama-3.1-8b-instant",
+    classifierFallbackModel: "llama-3.3-70b-versatile",
+    baseUrl: "https://api.groq.com/openai/v1"
+  },
+  cerebras: {
+    // llama3.1-8b free; escalate to 70B for uncertain listings.
+    classifierModel: "llama3.1-8b",
+    classifierFallbackModel: "llama-3.3-70b",
+    baseUrl: "https://api.cerebras.ai/v1"
+  }
+} as const;
+
+export type LlmProvider = keyof typeof providerDefaults;
+
+// Kept for backward compat — still the Gemini primary/fallback defaults.
+export const defaultClassifierPrimaryModel = providerDefaults.gemini.classifierModel;
+export const defaultClassifierFallbackModel = providerDefaults.gemini.classifierFallbackModel;
+export const defaultClassifierFallbackMinScore = 80;
+
 const runtimeSettingsObjectSchema = z.object({
-  llmProvider: z.literal("gemini").default("gemini"),
+  llmProvider: z.enum(["gemini", "groq", "cerebras"]).default("gemini"),
   enableSemanticClassifier: z.boolean().default(true),
   enableLlmEnrichment: z.boolean().default(true),
   llmClassifierModel: z.string().trim().min(1).default(defaultClassifierPrimaryModel),
@@ -27,10 +51,18 @@ const runtimeSettingsSchema = z.preprocess((value) => {
   }
 
   const record = value as Record<string, unknown>;
+  const provider = (record.llmProvider as string | undefined) ?? "gemini";
+  const defaults = providerDefaults[provider as LlmProvider] ?? providerDefaults.gemini;
+
+  // Use provider-specific model defaults when the user hasn't explicitly set a model,
+  // so switching provider automatically picks sensible model names.
   const llmClassifierModel =
     record.llmClassifierModel ??
     record.ollamaModel ??
-    defaultClassifierPrimaryModel;
+    defaults.classifierModel;
+  const llmClassifierFallbackModel =
+    record.llmClassifierFallbackModel ??
+    defaults.classifierFallbackModel;
   const llmAnalystModel =
     record.llmAnalystModel ??
     record.ollamaTranslationModel ??
@@ -39,8 +71,8 @@ const runtimeSettingsSchema = z.preprocess((value) => {
 
   return {
     ...record,
-    llmProvider: "gemini",
     llmClassifierModel,
+    llmClassifierFallbackModel,
     llmAnalystModel
   };
 }, runtimeSettingsObjectSchema);

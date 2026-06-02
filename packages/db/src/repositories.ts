@@ -836,7 +836,9 @@ export async function listListingsForEvaluation(db: Database) {
     .select()
     .from(listings)
     .where(inArray(listings.userStatus, ["NEW", "REVIEWED"]))
-    .orderBy(desc(listings.lastSeenAt));
+    // Never-classified (NULL fingerprint) come first so the backlog drains before
+    // re-evaluating already-classified listings. Within each group, newest first.
+    .orderBy(sql`${listings.semanticInputFingerprint} IS NULL DESC`, desc(listings.lastSeenAt));
 
   return rows.map((row) => ({
     ...serializeListing(row),
