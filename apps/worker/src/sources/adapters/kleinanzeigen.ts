@@ -18,10 +18,10 @@ export const kleinanzeigenAdapter: SourceAdapter = {
     supportsCaptchaSolver: true,
     supportsDetailFallback: true,
     sourceKind: "scraping",
-    readiness: "experimental",
+    readiness: "secondary",
     cloudCompatible: false,
-    requiresAuthSetup: true,
-    setupHint: "Experimental scraping source. Keep it disabled until authentication and reliability are proven on your session."
+    requiresAuthSetup: false,
+    setupHint: "Scraping source. No account setup required; browsing is public. Login can be configured for higher rate limits."
   },
   defaultSource(settings) {
     return {

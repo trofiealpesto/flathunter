@@ -59,6 +59,15 @@ export async function ensureDefaultPortalSources(db: Database) {
         districts: settings.search.districts,
         scope: "whole_flat"
       }
+    },
+    {
+      portal: "KLEINANZEIGEN",
+      searchUrl: "https://www.kleinanzeigen.de/s-wohnung-mieten/berlin/c203l3331",
+      searchParams: {
+        city: settings.search.city,
+        districts: settings.search.districts,
+        category: "wohnung-mieten"
+      }
     }
   ];
 

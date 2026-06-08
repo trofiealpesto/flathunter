@@ -1,7 +1,7 @@
 import type { Portal } from "./listings";
 
-export const activeSourcePortals = ["IMMOWELT", "WG_GESUCHT", "FLATSFORFRIENDZ"] as const;
-export const retiredSourcePortals = ["IMMOSCOUT24", "KLEINANZEIGEN"] as const;
+export const activeSourcePortals = ["IMMOWELT", "WG_GESUCHT", "FLATSFORFRIENDZ", "KLEINANZEIGEN"] as const;
+export const retiredSourcePortals = ["IMMOSCOUT24"] as const;
 
 export type ActiveSourcePortal = (typeof activeSourcePortals)[number];
 export type RetiredSourcePortal = (typeof retiredSourcePortals)[number];

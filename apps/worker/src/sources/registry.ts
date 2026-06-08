@@ -4,10 +4,11 @@ import { retiredSourcePortals, type AppSettings, type Portal } from "@flathunter
 import type { WorkerEnv } from "../config";
 import { flatsforfriendzAdapter } from "./adapters/flatsforfriendz";
 import { immoweltAdapter } from "./adapters/immowelt";
+import { kleinanzeigenAdapter } from "./adapters/kleinanzeigen";
 import { wgGesuchtAdapter } from "./adapters/wg-gesucht";
 import type { SourceAdapter } from "./types";
 
-export const sourceAdapters = [flatsforfriendzAdapter, immoweltAdapter, wgGesuchtAdapter] as const;
+export const sourceAdapters = [flatsforfriendzAdapter, immoweltAdapter, wgGesuchtAdapter, kleinanzeigenAdapter] as const;
 
 const adaptersByPortal = new Map<Portal, SourceAdapter>(sourceAdapters.map((adapter) => [adapter.portal, adapter]));
 const portalsDisabledUntilAuth = new Set<Portal>(["WG_GESUCHT"]);
