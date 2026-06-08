@@ -205,8 +205,25 @@ export function evaluateListingDeterministically(
     };
   }
 
-  // No deterministic MATCH: the LLM is the only authority for positive decisions.
-  // Deterministic logic is reject-only; everything else goes to the semantic classifier.
+  // Deterministic MATCH: all key numeric criteria present and clearly within bounds.
+  // LLM called only when data is missing or borderline (genuinely ambiguous cases).
+  if (
+    listing.rentWarm != null &&
+    listing.rentWarm <= settings.scoring.maxWarmRent &&
+    listing.sizeSqm != null &&
+    listing.sizeSqm >= settings.scoring.minimumSizeSqm &&
+    listing.rooms != null &&
+    listing.rooms >= settings.scoring.minimumRooms
+  ) {
+    return {
+      analysisFlags,
+      score,
+      eligibilityState: "MATCH",
+      reason: `Deterministic match: all core criteria met (score ${score}); ${describeFlags(analysisFlags)}.`,
+      shouldRunSemanticClassifier: false
+    };
+  }
+
   return {
     analysisFlags,
     score,

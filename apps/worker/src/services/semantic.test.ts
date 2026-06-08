@@ -69,7 +69,6 @@ function buildGeminiResponse(payload: unknown) {
   );
 }
 
-// Unified evaluation responses must include translation + analysis + fitScore fields.
 function buildUnifiedPayload(
   eligibilityState: "MATCH" | "UNSURE" | "REJECT",
   reason: string,
@@ -77,9 +76,6 @@ function buildUnifiedPayload(
   fitScore?: number
 ) {
   return {
-    sourceLanguage: "en",
-    translatedTitle: null,
-    translatedDescription: null,
     eligibilityState,
     reason,
     flags,

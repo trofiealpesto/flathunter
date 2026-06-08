@@ -1,4 +1,5 @@
 export {
+  buildDeterministicMatchAnalysis,
   buildEnglishAnalystFingerprint,
   buildSemanticClassificationFingerprint,
   classifyListingEligibility,

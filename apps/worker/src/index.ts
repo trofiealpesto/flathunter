@@ -27,7 +27,7 @@ import { pathToFileURL } from "node:url";
 
 import { readWorkerEnv } from "./config";
 import { log } from "./lib/logger";
-import { buildSemanticClassificationFingerprint, classifyListingEligibility } from "./services/semantic";
+import { buildDeterministicMatchAnalysis, buildSemanticClassificationFingerprint, classifyListingEligibility } from "./services/semantic";
 import { ensureDefaultPortalSources, getSourceAdapter } from "./sources/registry";
 import type { SourceCredentials, SourceScrapeResult, SourceSessionState } from "./sources/types";
 
@@ -172,6 +172,12 @@ async function evaluateReviewQueue({
     let semanticUpdatedAt: Date | null | undefined;
     let semanticLastErrorKind = undefined;
     let semanticLastErrorAt = undefined;
+
+    // For deterministic MATCH: build translation + template analysis via MyMemory (no LLM).
+    // Reuse if fingerprint unchanged.
+    if (deterministic.eligibilityState === "MATCH" && candidate.llmAnalysis?.inputFingerprint !== inputFingerprint) {
+      llmAnalysis = await buildDeterministicMatchAnalysis(candidate, inputFingerprint, { fetchImpl });
+    }
 
     const hasClassifierBudget = semanticClassifierCalls < env.GEMINI_CLASSIFIER_MAX_PER_RUN;
     const hasClassifierFallbackBudget = semanticClassifierFallbackCalls < env.GEMINI_CLASSIFIER_FALLBACK_MAX_PER_RUN;

@@ -134,6 +134,34 @@ export const englishListingAnalystJsonSchema = {
   ]
 } as const;
 
+// Classification + analysis without translation (translation handled externally by MyMemory).
+export const classificationWithSummarySchema = unifiedEvaluationSchema.omit({
+  sourceLanguage: true,
+  translatedTitle: true,
+  translatedDescription: true
+});
+export type ClassificationWithSummary = z.infer<typeof classificationWithSummarySchema>;
+
+export const classificationWithSummaryJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    eligibilityState: { type: "string", enum: ["MATCH", "UNSURE", "REJECT"] },
+    reason: { type: "string" },
+    flags: {
+      type: "array",
+      items: {
+        type: "string",
+        enum: ["LONG_TERM", "SHORT_TERM", "WBS_REQUIRED", "COUPLE_FRIENDLY", "FURNISHED", "NO_REGISTRATION", "PET_FRIENDLY"]
+      }
+    },
+    fitScore: { type: "integer", minimum: 0, maximum: 100 },
+    summary: { type: "string" },
+    fitNote: { type: "string" }
+  },
+  required: ["eligibilityState", "reason", "flags", "fitScore", "summary", "fitNote"]
+} as const;
+
 // JSON schema for the unified evaluation (classification + translation + analysis + fitScore).
 export const unifiedEvaluationJsonSchema = {
   type: "object",

@@ -4,18 +4,20 @@ import type { AnalysisFlag, EligibilityState, ListingSummary } from "./listings"
 import type { AppSettings, LlmProvider } from "./settings";
 import { providerDefaults } from "./settings";
 import type { LlmAnalysis, LlmErrorKind } from "./llm-analysis";
-import type { EnglishListingAnalyst, SemanticClassification, UnifiedEvaluation } from "./semantic";
+import type { ClassificationWithSummary, EnglishListingAnalyst, SemanticClassification } from "./semantic";
 import {
+  classificationWithSummaryJsonSchema,
+  classificationWithSummarySchema,
   englishListingAnalystJsonSchema,
-  englishListingAnalystSchema,
-  unifiedEvaluationJsonSchema,
-  unifiedEvaluationSchema
+  englishListingAnalystSchema
 } from "./semantic";
 import { llmAnalysisPromptVersion, semanticClassificationPromptVersion } from "./llm-analysis";
 
 const DEFAULT_CLASSIFIER_TIMEOUT_MS = 20_000;
 const DEFAULT_ANALYST_TIMEOUT_MS = 45_000;
 const DEFAULT_GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
+const MYMEMORY_API_URL = "https://api.mymemory.translated.net/get";
+const MYMEMORY_MAX_CHARS = 500;
 
 const germanMarkers = /\b(wohnung|zimmer|miete|warmmiete|kaltmiete|befristet|zwischenmiete|möbliert|mobliert|balkon|aufzug)\b|[äöüß]/i;
 const englishMarkers = /\b(apartment|flat|room|rent|balcony|elevator|available|kitchen|furnished|long[- ]term)\b/i;
@@ -163,6 +165,36 @@ class GeminiStructuredError extends Error {
     this.kind = kind;
     this.status = status;
     this.name = "GeminiStructuredError";
+  }
+}
+
+export async function translateWithMyMemory(
+  text: string,
+  options: { fetchImpl?: typeof fetch } = {}
+): Promise<string | null> {
+  const trimmed = text.trim().slice(0, MYMEMORY_MAX_CHARS);
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const fetchFn = options.fetchImpl ?? fetch;
+
+  try {
+    const params = new URLSearchParams({ q: trimmed, langpair: "de|en" });
+    const res = await fetchFn(`${MYMEMORY_API_URL}?${params}`);
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json() as { responseStatus: number; responseData?: { translatedText?: string } };
+
+    return data.responseStatus === 200 && data.responseData?.translatedText
+      ? data.responseData.translatedText
+      : null;
+  } catch {
+    return null;
   }
 }
 
@@ -338,11 +370,9 @@ function buildUnifiedEvaluationPrompt(
     "- UNSURE 35-64.",
     "- REJECT 0-34. Example: a 2-month furnished sublet → fitScore ≤ 10.",
     "",
-    "TRANSLATION AND ANALYSIS (always required):",
-    "- Detect source language.",
-    "- If not English: translate title and description into concise factual English. If already English: use null for translatedTitle and translatedDescription.",
-    "- summary: 2-3 sentences of key facts about the listing.",
-    "- fitNote: 1 sentence explaining the eligibility verdict.",
+    "ANALYSIS (required):",
+    "- summary: 2-3 sentences of key facts about the listing in English.",
+    "- fitNote: 1 sentence explaining the eligibility verdict in English.",
     "",
     `Title: ${truncatePromptText(listing.title, PROMPT_TITLE_MAX_CHARS)}`,
     `Description: ${truncatePromptText(listing.description, PROMPT_DESCRIPTION_MAX_CHARS)}`,
@@ -814,19 +844,27 @@ function buildClassifierUnavailableFallback(
   };
 }
 
+type TranslationInfo = {
+  sourceLanguage: string;
+  translatedTitle: string | null;
+  translatedDescription: string | null;
+  translationModel: string | null;
+};
+
 function buildLlmAnalysisFromEvaluation(
-  result: UnifiedEvaluation,
+  result: ClassificationWithSummary,
   model: string,
-  inputFingerprint: string
+  inputFingerprint: string,
+  translation: TranslationInfo
 ): LlmAnalysis {
   return {
-    sourceLanguage: result.sourceLanguage,
-    translatedTitle: result.translatedTitle,
-    translatedDescription: result.translatedDescription,
+    sourceLanguage: translation.sourceLanguage,
+    translatedTitle: translation.translatedTitle,
+    translatedDescription: translation.translatedDescription,
     summary: result.summary,
     fitNote: result.fitNote,
     model,
-    translationModel: null,
+    translationModel: translation.translationModel,
     promptVersion: semanticClassificationPromptVersion,
     inputFingerprint,
     updatedAt: new Date().toISOString()
@@ -907,6 +945,55 @@ export function buildEnglishAnalystFingerprint(listing: LlmListingInput, setting
     .digest("hex");
 }
 
+export async function buildDeterministicMatchAnalysis(
+  listing: Pick<LlmListingInput, "title" | "description" | "district" | "rentWarm" | "sizeSqm" | "rooms" | "availableFrom">,
+  inputFingerprint: string,
+  deps: { fetchImpl?: typeof fetch }
+): Promise<LlmAnalysis> {
+  const isEnglish = listingTextLooksEnglish(listing);
+  let translatedTitle: string | null = null;
+  let translatedDescription: string | null = null;
+  let translationModel: string | null = null;
+
+  if (!isEnglish) {
+    const [title, description] = await Promise.all([
+      listing.title?.trim() ? translateWithMyMemory(listing.title, { fetchImpl: deps.fetchImpl }) : Promise.resolve(null),
+      listing.description?.trim() ? translateWithMyMemory(listing.description, { fetchImpl: deps.fetchImpl }) : Promise.resolve(null)
+    ]);
+
+    if (title || description) {
+      translatedTitle = title;
+      translatedDescription = description;
+      translationModel = "mymemory";
+    }
+  }
+
+  const parts: string[] = [];
+  if (listing.rooms) parts.push(`${listing.rooms}-room`);
+  parts.push("apartment");
+  if (listing.district) parts.push(`in ${listing.district}`);
+  const details: string[] = [];
+  if (listing.sizeSqm) details.push(`${listing.sizeSqm} sqm`);
+  if (listing.rentWarm) details.push(`${listing.rentWarm} € warm rent`);
+  if (listing.availableFrom) details.push(`available from ${listing.availableFrom}`);
+
+  const summaryBase = parts.join(" ");
+  const summary = details.length > 0 ? `${summaryBase}. ${details.join(", ")}.` : `${summaryBase}.`;
+
+  return {
+    sourceLanguage: isEnglish ? "English" : "German",
+    translatedTitle,
+    translatedDescription,
+    summary,
+    fitNote: "Meets all core search criteria: price, size, and rooms within target range.",
+    model: "deterministic",
+    translationModel,
+    promptVersion: semanticClassificationPromptVersion,
+    inputFingerprint,
+    updatedAt: new Date().toISOString()
+  };
+}
+
 export async function classifyListingEligibility(
   listing: LlmListingInput,
   settings: AppSettings,
@@ -914,7 +1001,7 @@ export async function classifyListingEligibility(
   deps: ListingEligibilityDeps
 ): Promise<EligibilityClassificationResult> {
   const inputFingerprint = buildSemanticClassificationFingerprint(listing, settings, context);
-  const timeoutMs = deps.timeoutMs ?? DEFAULT_ANALYST_TIMEOUT_MS; // unified call does more work
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_ANALYST_TIMEOUT_MS;
   const retryTimeoutMs = deps.retryTimeoutMs ?? Math.round(timeoutMs * 1.4);
   const fallbackModel = getConfiguredClassifierFallbackModel(settings, deps);
   const fallbackTimeoutMs = deps.fallbackTimeoutMs ?? timeoutMs;
@@ -922,18 +1009,43 @@ export async function classifyListingEligibility(
 
   const provider: LlmProvider = (settings.runtime.llmProvider as LlmProvider) ?? "gemini";
 
-  async function runEvaluation(model: string, compact: boolean, requestTimeoutMs: number): Promise<UnifiedEvaluation> {
+  // Pre-translate with MyMemory for display; LLM receives original text for analysis.
+  const listingIsGerman = !listingTextLooksEnglish(listing);
+  let translationInfo: TranslationInfo = {
+    sourceLanguage: listingIsGerman ? "German" : "English",
+    translatedTitle: null,
+    translatedDescription: null,
+    translationModel: null
+  };
+
+  if (listingIsGerman) {
+    const [title, description] = await Promise.all([
+      listing.title?.trim() ? translateWithMyMemory(listing.title, { fetchImpl: deps.fetchImpl }) : Promise.resolve(null),
+      listing.description?.trim() ? translateWithMyMemory(listing.description, { fetchImpl: deps.fetchImpl }) : Promise.resolve(null)
+    ]);
+
+    if (title || description) {
+      translationInfo = {
+        sourceLanguage: "German",
+        translatedTitle: title,
+        translatedDescription: description,
+        translationModel: "mymemory"
+      };
+    }
+  }
+
+  async function runEvaluation(model: string, compact: boolean, requestTimeoutMs: number): Promise<ClassificationWithSummary> {
     return callClassifierLlmJson(provider, deps, {
       model,
       timeoutMs: requestTimeoutMs,
-      responseJsonSchema: unifiedEvaluationJsonSchema,
+      responseJsonSchema: classificationWithSummaryJsonSchema,
       systemInstruction: "You are a strict Berlin rental listing analyst and classifier. Output only valid JSON.",
       userPrompt: buildUnifiedEvaluationPrompt(listing, settings, context, compact),
-      parse: (value) => unifiedEvaluationSchema.parse(value)
+      parse: (value) => classificationWithSummarySchema.parse(value)
     });
   }
 
-  async function tryEvaluationFallback(): Promise<{ result: UnifiedEvaluation | null; errorKind: LlmErrorKind | null }> {
+  async function tryEvaluationFallback(): Promise<{ result: ClassificationWithSummary | null; errorKind: LlmErrorKind | null }> {
     if (!fallbackModel) {
       return { result: null, errorKind: null };
     }
@@ -945,11 +1057,11 @@ export async function classifyListingEligibility(
     }
   }
 
-  function toClassification(full: UnifiedEvaluation): SemanticClassification {
+  function toClassification(full: ClassificationWithSummary): SemanticClassification {
     return { eligibilityState: full.eligibilityState, reason: full.reason, flags: full.flags, fitScore: full.fitScore };
   }
 
-  async function buildSuccessfulResult(full: UnifiedEvaluation, model: string, didPrimaryRetry: boolean): Promise<EligibilityClassificationResult> {
+  async function buildSuccessfulResult(full: ClassificationWithSummary, model: string, didPrimaryRetry: boolean): Promise<EligibilityClassificationResult> {
     const result = toClassification(full);
     const classifierFallbackWanted = shouldEscalateClassifierResult(result, null, settings, context, deps);
 
@@ -959,7 +1071,7 @@ export async function classifyListingEligibility(
       if (fallback.result && fallbackModel) {
         return {
           ...toClassification(fallback.result),
-          llmAnalysis: buildLlmAnalysisFromEvaluation(fallback.result, fallbackModel, inputFingerprint),
+          llmAnalysis: buildLlmAnalysisFromEvaluation(fallback.result, fallbackModel, inputFingerprint, translationInfo),
           inputFingerprint,
           model: fallbackModel,
           usedFallback: false,
@@ -975,7 +1087,7 @@ export async function classifyListingEligibility(
 
       return {
         ...result,
-        llmAnalysis: buildLlmAnalysisFromEvaluation(full, model, inputFingerprint),
+        llmAnalysis: buildLlmAnalysisFromEvaluation(full, model, inputFingerprint, translationInfo),
         inputFingerprint,
         model,
         usedFallback: false,
@@ -991,7 +1103,7 @@ export async function classifyListingEligibility(
 
     return {
       ...result,
-      llmAnalysis: buildLlmAnalysisFromEvaluation(full, model, inputFingerprint),
+      llmAnalysis: buildLlmAnalysisFromEvaluation(full, model, inputFingerprint, translationInfo),
       inputFingerprint,
       model,
       usedFallback: false,
@@ -1014,7 +1126,7 @@ export async function classifyListingEligibility(
       if (fallback.result && fallbackModel) {
         return {
           ...toClassification(fallback.result),
-          llmAnalysis: buildLlmAnalysisFromEvaluation(fallback.result, fallbackModel, inputFingerprint),
+          llmAnalysis: buildLlmAnalysisFromEvaluation(fallback.result, fallbackModel, inputFingerprint, translationInfo),
           inputFingerprint,
           model: fallbackModel,
           usedFallback: false,
