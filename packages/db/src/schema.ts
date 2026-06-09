@@ -67,6 +67,8 @@ export const listings = pgTable(
     hasElevator: boolean("has_elevator").notNull().default(false),
     score: integer("score"),
     semanticFitScore: integer("semantic_fit_score"),
+    commuteMinutes: integer("commute_minutes"),
+    commuteSource: text("commute_source"),
     userStatus: userStatusEnum("user_status").notNull().default("NEW"),
     eligibilityState: eligibilityStateEnum("eligibility_state").notNull().default("UNSURE"),
     eligibilityReason: text("eligibility_reason"),
@@ -167,6 +169,20 @@ export const geocodeCache = pgTable(
   },
   (table) => ({
     geocodeQueryUnique: uniqueIndex("geocode_cache_query_idx").on(table.query)
+  })
+);
+
+export const commuteCache = pgTable(
+  "commute_cache",
+  {
+    id: serial("id").primaryKey(),
+    query: text("query").notNull(),
+    minutes: integer("minutes"),
+    source: text("source").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow()
+  },
+  (table) => ({
+    commuteQueryUnique: uniqueIndex("commute_cache_query_idx").on(table.query)
   })
 );
 

@@ -35,6 +35,8 @@ const listing: ListingSummary = {
   hasBalcony: true,
   hasElevator: true,
   score: 82,
+  commuteMinutes: null,
+  commuteSource: null,
   userStatus: "NEW",
   eligibilityState: "UNSURE",
   eligibilityReason: null,

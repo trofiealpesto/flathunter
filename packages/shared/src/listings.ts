@@ -71,6 +71,8 @@ export const listingBaseSchema = z.object({
   hasElevator: z.boolean(),
   score: z.number().int().nullable(),
   semanticFitScore: z.number().int().nullish(),
+  commuteMinutes: z.number().int().nullable(),
+  commuteSource: z.string().nullable(),
   userStatus: userStatusSchema,
   eligibilityState: eligibilityStateSchema,
   eligibilityReason: z.string().nullable(),

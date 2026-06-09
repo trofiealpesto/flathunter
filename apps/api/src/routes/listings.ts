@@ -73,7 +73,10 @@ export function registerListingRoutes(app: FastifyInstance, deps: AppDeps) {
     }
 
     // Re-evaluate deterministically to get context for the LLM call.
-    const deterministic = evaluateListingDeterministically(listing, settings);
+    const deterministic = evaluateListingDeterministically(listing, settings, {
+      commuteMinutes: listing.commuteMinutes,
+      firstSeenAt: listing.firstSeenAt
+    });
 
     try {
       // Single unified call: produces eligibility verdict + translation + summary.

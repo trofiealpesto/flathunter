@@ -85,7 +85,10 @@ export const appSettingsSchema = z.object({
     preferredDistricts: z.array(z.string().trim().min(1)),
     balconyBonus: z.number().int(),
     elevatorBonus: z.number().int(),
-    furnishedPenalty: z.number().int()
+    furnishedPenalty: z.number().int(),
+    // Defaults keep previously stored settings JSON parseable without a migration.
+    maxCommuteMinutes: z.number().int().positive().default(35),
+    commutePenaltyPerTenMinutes: z.number().int().nonnegative().default(5)
   }),
   search: z.object({
     city: z.string().trim().min(1),
@@ -126,7 +129,9 @@ export const defaultAppSettings: AppSettings = {
     preferredDistricts: ["Prenzlauer Berg", "Mitte", "Friedrichshain", "Kreuzberg"],
     balconyBonus: 5,
     elevatorBonus: 3,
-    furnishedPenalty: 8
+    furnishedPenalty: 8,
+    maxCommuteMinutes: 35,
+    commutePenaltyPerTenMinutes: 5
   },
   search: {
     city: "Berlin",

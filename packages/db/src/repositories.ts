@@ -47,6 +47,7 @@ import type { Database } from "./client";
 import { decryptJson, encryptJson } from "./secrets";
 import {
   appSettings,
+  commuteCache,
   contactAttempts,
   geocodeCache,
   listings,
@@ -448,6 +449,8 @@ function serializeListingBase(row: ListingRow, officeLocation: OfficeLocation | 
     hasElevator: row.hasElevator,
     score: row.score,
     semanticFitScore: row.semanticFitScore ?? null,
+    commuteMinutes: row.commuteMinutes ?? null,
+    commuteSource: row.commuteSource ?? null,
     userStatus: row.userStatus,
     eligibilityState: row.eligibilityState,
     eligibilityReason: row.eligibilityReason,
@@ -1575,4 +1578,106 @@ export async function upsertGeoSearchCache(db: Database, query: string, results:
     results: row.results,
     updatedAt: row.updatedAt.toISOString()
   };
+}
+
+export async function getCachedCommute(db: Database, query: string) {
+  const row = await db.query.commuteCache.findFirst({
+    where: eq(commuteCache.query, query)
+  });
+
+  return row
+    ? {
+        minutes: row.minutes,
+        source: row.source,
+        updatedAt: row.updatedAt.toISOString()
+      }
+    : null;
+}
+
+export async function upsertCommuteCache(db: Database, query: string, minutes: number | null, source: string) {
+  await db
+    .insert(commuteCache)
+    .values({
+      query,
+      minutes,
+      source,
+      updatedAt: new Date()
+    })
+    .onConflictDoUpdate({
+      target: commuteCache.query,
+      set: {
+        minutes,
+        source,
+        updatedAt: new Date()
+      }
+    });
+}
+
+export async function updateListingCommute(db: Database, id: number, minutes: number | null, source: string | null) {
+  await db
+    .update(listings)
+    .set({
+      commuteMinutes: minutes,
+      commuteSource: source,
+      updatedAt: new Date()
+    })
+    .where(eq(listings.id, id));
+}
+
+export async function listListingsNeedingCommute(db: Database, limit = 40) {
+  return db
+    .select({
+      id: listings.id,
+      latitude: listings.latitude,
+      longitude: listings.longitude
+    })
+    .from(listings)
+    .where(
+      and(
+        inArray(listings.userStatus, ["NEW", "REVIEWED"]),
+        sql`${listings.commuteMinutes} IS NULL`,
+        sql`${listings.latitude} IS NOT NULL`,
+        sql`${listings.longitude} IS NOT NULL`
+      )
+    )
+    .orderBy(desc(listings.lastSeenAt))
+    .limit(limit);
+}
+
+/**
+ * Median EUR/sqm per district over recently seen listings.
+ * Districts with fewer than minSamples listings are omitted.
+ */
+export async function getDistrictPriceBaselines(db: Database, options: { sinceDays?: number; minSamples?: number } = {}) {
+  const sinceDays = options.sinceDays ?? 90;
+  const minSamples = options.minSamples ?? 5;
+
+  const rows = await db.execute(sql`
+    SELECT
+      district,
+      PERCENTILE_CONT(0.5) WITHIN GROUP (
+        ORDER BY COALESCE(rent_cold, rent_warm) / size_sqm
+      ) AS median_rent_per_sqm,
+      COUNT(*) AS sample_count
+    FROM listings
+    WHERE district IS NOT NULL
+      AND size_sqm IS NOT NULL
+      AND size_sqm > 0
+      AND COALESCE(rent_cold, rent_warm) IS NOT NULL
+      AND last_seen_at > NOW() - make_interval(days => ${sinceDays})
+    GROUP BY district
+    HAVING COUNT(*) >= ${minSamples}
+  `);
+
+  const baselines = new Map<string, number>();
+
+  for (const row of rows.rows as Array<{ district: string; median_rent_per_sqm: string | number | null }>) {
+    const median = row.median_rent_per_sqm == null ? null : Number(row.median_rent_per_sqm);
+
+    if (row.district && median != null && Number.isFinite(median) && median > 0) {
+      baselines.set(row.district.trim().toLowerCase(), median);
+    }
+  }
+
+  return baselines;
 }

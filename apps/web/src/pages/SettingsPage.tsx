@@ -437,7 +437,9 @@ export function SettingsPage({
                   { id: "score-min-rooms", label: "Minimum rooms", key: "minimumRooms", min: 0, step: 0.5 },
                   { id: "score-balcony-bonus", label: "Balcony bonus", key: "balconyBonus" },
                   { id: "score-elevator-bonus", label: "Elevator bonus", key: "elevatorBonus" },
-                  { id: "score-furnished-penalty", label: "Furnished penalty", key: "furnishedPenalty" }
+                  { id: "score-furnished-penalty", label: "Furnished penalty", key: "furnishedPenalty" },
+                  { id: "score-max-commute", label: "Max commute (min)", key: "maxCommuteMinutes", min: 1 },
+                  { id: "score-commute-penalty", label: "Commute penalty / 10 min", key: "commutePenaltyPerTenMinutes", min: 0 }
                 ].map((field) => (
                   <FormField htmlFor={field.id} key={field.id} label={field.label}>
                     <Input

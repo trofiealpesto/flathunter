@@ -2,6 +2,7 @@ import {
   connectDb,
   getDecryptedPortalCredentials,
   getDecryptedPortalSessionState,
+  getDistrictPriceBaselines,
   getPortalSource,
   getSettings,
   listEnabledPortalSourcesDue,
@@ -27,6 +28,7 @@ import { pathToFileURL } from "node:url";
 
 import { readWorkerEnv } from "./config";
 import { log } from "./lib/logger";
+import { enrichListingCommutes } from "./services/commute";
 import { buildDeterministicMatchAnalysis, buildSemanticClassificationFingerprint, classifyListingEligibility } from "./services/semantic";
 import { ensureDefaultPortalSources, getSourceAdapter } from "./sources/registry";
 import type { SourceCredentials, SourceScrapeResult, SourceSessionState } from "./sources/types";
@@ -118,6 +120,7 @@ async function evaluateReviewQueue({
 }) {
   const settings = await getSettings(db);
   const candidates = await listListingsForEvaluation(db);
+  const districtPriceBaselines = await getDistrictPriceBaselines(db);
   const provider = settings.runtime.llmProvider;
 
   // Resolve API key for the selected classifier provider.
@@ -142,7 +145,13 @@ async function evaluateReviewQueue({
   let lastSemanticClassifierCallAt = 0;
 
   for (const candidate of candidates) {
-    const deterministic = evaluateListingDeterministically(candidate, settings);
+    const deterministic = evaluateListingDeterministically(candidate, settings, {
+      commuteMinutes: candidate.commuteMinutes,
+      firstSeenAt: candidate.firstSeenAt,
+      districtMedianRentPerSqm: candidate.district
+        ? districtPriceBaselines.get(candidate.district.trim().toLowerCase()) ?? null
+        : null
+    });
     let eligibilityState = deterministic.eligibilityState;
     let eligibilityReason = deterministic.reason;
     let semanticFlags: string[] = candidate.semanticFlags;
@@ -497,6 +506,18 @@ export async function runWorkerOnce({ envInput, fetchImpl = fetch, sleepImpl = s
         fetchImpl,
         scrapeWithFixtures
       });
+    }
+
+    const commute = await enrichListingCommutes({
+      db,
+      // Defensive access: unit tests stub settings with partial objects.
+      office: settings.search?.officeLocation ?? null,
+      fetchImpl,
+      sleepImpl
+    });
+
+    if (commute.enriched > 0) {
+      log("commute enrichment completed", commute);
     }
 
     const evaluated = await evaluateReviewQueue({

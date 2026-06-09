@@ -1,6 +1,6 @@
 import type { AppSettings } from "./settings";
 import type { AnalysisFlag, EligibilityState, ListingSummary, ListingUpsertInput } from "./listings";
-import { computeDeterministicScore } from "./scoring";
+import { computeDeterministicScore, type ScoringContext } from "./scoring";
 
 type AnalyzableListing = Partial<Pick<ListingSummary, "title" | "description" | "availableFrom" | "isFurnished" | "hasBalcony" | "hasElevator" | "rooms" | "sizeSqm">> &
   Partial<Pick<ListingUpsertInput, "title" | "description" | "availableFrom" | "isFurnished" | "hasBalcony" | "hasElevator" | "rooms" | "sizeSqm">>;
@@ -174,10 +174,11 @@ function listingClearlyMissesProfile(
 
 export function evaluateListingDeterministically(
   listing: AnalyzableListing & Pick<ListingSummary, "district" | "rentWarm"> & Partial<Pick<ListingSummary, "city">>,
-  settings: AppSettings
+  settings: AppSettings,
+  scoringContext: ScoringContext = {}
 ): DeterministicEvaluation {
   const analysisFlags = extractAnalysisFlags(listing);
-  const score = computeDeterministicScore(listing, settings, analysisFlags);
+  const score = computeDeterministicScore(listing, settings, analysisFlags, scoringContext);
 
   const hardRejectFlag = analysisFlags.find((flag) =>
     ["wbs_required", "swap_only", "temporary_sublet", "room_only"].includes(flag)

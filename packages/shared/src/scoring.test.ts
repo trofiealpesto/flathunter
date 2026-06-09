@@ -53,4 +53,52 @@ describe("computeDeterministicScore", () => {
 
     expect(score).toBeGreaterThanOrEqual(62);
   });
+
+  const baseListing = {
+    rentWarm: 1600,
+    sizeSqm: 60,
+    rooms: 2
+  };
+
+  it("penalizes commutes above the configured threshold only", () => {
+    const withoutCommute = computeDeterministicScore(baseListing, defaultAppSettings);
+    const shortCommute = computeDeterministicScore(baseListing, defaultAppSettings, [], { commuteMinutes: 25 });
+    const longCommute = computeDeterministicScore(baseListing, defaultAppSettings, [], { commuteMinutes: 55 });
+
+    expect(shortCommute).toBe(withoutCommute);
+    // 20 minutes over the 35-minute default at 5 points per 10 minutes = -10.
+    expect(longCommute).toBe(withoutCommute - 10);
+  });
+
+  it("rewards fresh listings and decays the bonus after 72 hours", () => {
+    const now = new Date("2026-06-09T12:00:00Z");
+    const base = computeDeterministicScore(baseListing, defaultAppSettings, [], { now });
+    const fresh = computeDeterministicScore(baseListing, defaultAppSettings, [], {
+      now,
+      firstSeenAt: "2026-06-09T06:00:00Z"
+    });
+    const recent = computeDeterministicScore(baseListing, defaultAppSettings, [], {
+      now,
+      firstSeenAt: "2026-06-07T12:00:00Z"
+    });
+    const old = computeDeterministicScore(baseListing, defaultAppSettings, [], {
+      now,
+      firstSeenAt: "2026-06-01T12:00:00Z"
+    });
+
+    expect(fresh).toBe(base + 8);
+    expect(recent).toBe(base + 4);
+    expect(old).toBe(base);
+  });
+
+  it("adjusts the score against the district price baseline", () => {
+    const listing = { rentCold: 600, sizeSqm: 60, rooms: 2 }; // 10 EUR/sqm
+
+    const base = computeDeterministicScore(listing, defaultAppSettings);
+    const cheap = computeDeterministicScore(listing, defaultAppSettings, [], { districtMedianRentPerSqm: 12.5 }); // 20% below median
+    const expensive = computeDeterministicScore(listing, defaultAppSettings, [], { districtMedianRentPerSqm: 8 }); // 25% above median
+
+    expect(cheap).toBe(base + 4);
+    expect(expensive).toBe(base - 5);
+  });
 });

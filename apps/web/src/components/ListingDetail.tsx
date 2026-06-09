@@ -289,12 +289,19 @@ export function ListingDetail({
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 {[
                   { label: "Rooms", value: listing.rooms ?? "n/a" },
                   { label: "Listed rent", value: formatListedRent(listing) },
                   { label: "Size", value: listing.sizeSqm ? `${listing.sizeSqm} m²` : "n/a" },
                   { label: "Distance", value: formatDistance(listing.distanceKm) },
+                  {
+                    label: "Commute",
+                    value:
+                      listing.commuteMinutes != null
+                        ? `${listing.commuteMinutes} min${listing.commuteSource === "heuristic" ? " (est.)" : ""}`
+                        : "n/a"
+                  },
                   { label: "Updated", value: formatUpdatedAt(listing.updatedAt) }
                 ].map((item) => (
                   <div className="rounded-lg border bg-muted/30 p-3" key={item.label}>

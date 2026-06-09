@@ -85,6 +85,8 @@ function createListingSummary(
     hasBalcony: data.hasBalcony ?? false,
     hasElevator: data.hasElevator ?? false,
     score: null,
+    commuteMinutes: null,
+    commuteSource: null,
     userStatus: "NEW",
     eligibilityState: "UNSURE",
     eligibilityReason: null,

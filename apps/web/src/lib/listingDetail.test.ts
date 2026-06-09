@@ -30,6 +30,8 @@ const listing: ListingDetail = {
   hasBalcony: false,
   hasElevator: false,
   score: null,
+  commuteMinutes: null,
+  commuteSource: null,
   userStatus: "NEW",
   eligibilityState: "UNSURE",
   eligibilityReason: null,
