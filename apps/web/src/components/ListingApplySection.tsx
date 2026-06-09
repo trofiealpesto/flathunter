@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Copy, Loader2, Mail, Send, Sparkles } from "lucide-react";
+import { Check, Copy, Globe, Loader2, Mail, Send, Sparkles, X } from "lucide-react";
 
 import type { ContactAttempt, ContactChannel, ListingDetail } from "@flathunter/shared";
 
@@ -42,6 +42,8 @@ export function ListingApplySection({ listing, onContacted }: ListingApplySectio
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [assistRunning, setAssistRunning] = useState(false);
+  const [assistMessage, setAssistMessage] = useState<string | null>(null);
 
   const contactEmail = findContactEmail(listing);
   const hasDraft = subject.trim().length > 0 || body.trim().length > 0;
@@ -53,6 +55,8 @@ export function ListingApplySection({ listing, onContacted }: ListingApplySectio
     setError(null);
     setCopied(false);
     setAttempts([]);
+    setAssistRunning(false);
+    setAssistMessage(null);
 
     let cancelled = false;
 
@@ -107,6 +111,33 @@ export function ListingApplySection({ listing, onContacted }: ListingApplySectio
       body
     });
     window.location.href = `mailto:${contactEmail}?${params.toString().replace(/\+/g, "%20")}`;
+  }
+
+  async function openFormAssist() {
+    setError(null);
+    setAssistMessage(null);
+
+    try {
+      const summary = await api.startApplyAssist(listing.id, {
+        subject: subject.trim() || null,
+        body
+      });
+      setAssistRunning(summary.status === "running");
+      setAssistMessage(summary.message);
+    } catch (assistError) {
+      setError(assistError instanceof Error ? assistError.message : "Form assist failed to start");
+    }
+  }
+
+  async function closeFormAssist() {
+    try {
+      await api.closeApplyAssist(listing.id);
+    } catch {
+      // Closing is best-effort; the window may already be gone.
+    } finally {
+      setAssistRunning(false);
+      setAssistMessage(null);
+    }
   }
 
   async function markSent() {
@@ -181,7 +212,19 @@ export function ListingApplySection({ listing, onContacted }: ListingApplySectio
                 {saving ? <Loader2 className="animate-spin" /> : <Send />}
                 Mark as sent
               </Button>
+              {assistRunning ? (
+                <Button onClick={() => void closeFormAssist()} size="sm" variant="outline">
+                  <X />
+                  Close assist window
+                </Button>
+              ) : (
+                <Button onClick={() => void openFormAssist()} size="sm" variant="outline">
+                  <Globe />
+                  Open form assist
+                </Button>
+              )}
             </div>
+            {assistMessage ? <p className="text-sm text-muted-foreground">{assistMessage}</p> : null}
           </div>
         ) : null}
 

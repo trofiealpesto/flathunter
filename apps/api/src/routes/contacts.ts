@@ -10,7 +10,13 @@ import {
 import type { FastifyInstance } from "fastify";
 
 import type { AppDeps } from "../app";
+import { finishApplyAssist, startApplyAssist } from "../lib/apply-assist";
 import { requireSession } from "../lib/session";
+
+const applyAssistStartSchema = z.object({
+  subject: z.string().trim().min(1).nullable().default(null),
+  body: z.string().trim().min(1)
+});
 
 const idParamsSchema = z.object({
   id: z.coerce.number().int().positive()
@@ -92,5 +98,41 @@ export function registerContactRoutes(app: FastifyInstance, deps: AppDeps) {
     }
 
     return listContactAttemptsByListing(deps.db, id);
+  });
+
+  app.post("/api/listings/:id/apply-assist", async (request, reply) => {
+    if (!requireSession(request, reply, deps.env)) {
+      return;
+    }
+
+    const { id } = idParamsSchema.parse(request.params);
+    const message = applyAssistStartSchema.parse(request.body);
+    const listing = await getListingById(deps.db, id);
+
+    if (!listing) {
+      reply.code(404).send({
+        message: "Listing not found"
+      });
+      return;
+    }
+
+    const settings = await getSettings(deps.db);
+
+    return startApplyAssist({
+      listingId: id,
+      url: listing.url,
+      settings,
+      message,
+      env: deps.env
+    });
+  });
+
+  app.delete("/api/listings/:id/apply-assist", async (request, reply) => {
+    if (!requireSession(request, reply, deps.env)) {
+      return;
+    }
+
+    const { id } = idParamsSchema.parse(request.params);
+    return finishApplyAssist(id);
   });
 }

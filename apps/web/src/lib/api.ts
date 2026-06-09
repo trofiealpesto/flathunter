@@ -105,6 +105,18 @@ export const api = {
       body: JSON.stringify(payload)
     }),
   listContactAttempts: (id: number) => apiFetch<ContactAttempt[]>(`/api/listings/${id}/contact-attempts`),
+  startApplyAssist: (id: number, payload: { subject: string | null; body: string }) =>
+    apiFetch<{ listingId: number; status: "idle" | "running"; message: string | null; filledFields: string[] }>(
+      `/api/listings/${id}/apply-assist`,
+      {
+        method: "POST",
+        body: JSON.stringify(payload)
+      }
+    ),
+  closeApplyAssist: (id: number) =>
+    apiFetch<{ wasRunning: boolean }>(`/api/listings/${id}/apply-assist`, {
+      method: "DELETE"
+    }),
   clearListingDuplicate: (id: number) =>
     apiFetch<ListingDetail>(`/api/listings/${id}/duplicate`, {
       method: "DELETE"
