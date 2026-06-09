@@ -41,7 +41,8 @@ export const listingFilterSchema = z.object({
   minScore: z.coerce.number().optional(),
   district: z.string().trim().min(1).optional(),
   query: z.string().trim().min(1).optional(),
-  sort: listingSortSchema.optional()
+  sort: listingSortSchema.optional(),
+  includeDuplicates: z.coerce.boolean().optional()
 });
 
 export const listingBaseSchema = z.object({
@@ -73,6 +74,7 @@ export const listingBaseSchema = z.object({
   semanticFitScore: z.number().int().nullish(),
   commuteMinutes: z.number().int().nullable(),
   commuteSource: z.string().nullable(),
+  duplicateOfListingId: z.number().int().nullable(),
   userStatus: userStatusSchema,
   eligibilityState: eligibilityStateSchema,
   eligibilityReason: z.string().nullable(),

@@ -207,6 +207,12 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
     }
   };
 
+  const handleClearDuplicate = async (id: number) => {
+    const detail = await api.clearListingDuplicate(id);
+    setSelectedListing(detail);
+    return detail;
+  };
+
   return (
     <div className="fh-viewport-workspace flex min-h-0 flex-col gap-4">
       <SectionHeader
@@ -273,6 +279,7 @@ export function ListingsPage({ isFixtureMode, fallbackSearchUrl, officeLocation,
               listing={selectedListing}
               loading={loadingDetail}
               onOpenOfficeSettings={() => navigate("/settings#office-location")}
+              onClearDuplicate={handleClearDuplicate}
               onRefreshLlmAnalysis={handleRefreshLlmAnalysis}
               onStatusChange={handleStatusChange}
             />

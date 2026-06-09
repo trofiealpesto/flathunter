@@ -32,6 +32,7 @@ type ListingDetailProps = {
   listing: ListingDetailRecord | null;
   loading: boolean;
   onStatusChange: (status: UserStatus) => void;
+  onClearDuplicate: (id: number) => Promise<ListingDetailRecord>;
   onRefreshLlmAnalysis: (id: number) => Promise<ListingDetailRecord>;
   isFixtureMode: boolean;
   fallbackSearchUrl: string | null;
@@ -156,6 +157,7 @@ export function ListingDetail({
   listing,
   loading,
   onStatusChange,
+  onClearDuplicate,
   onRefreshLlmAnalysis,
   isFixtureMode,
   fallbackSearchUrl,
@@ -261,6 +263,16 @@ export function ListingDetail({
                     <ToneBadge tone="info">{listing.portal}</ToneBadge>
                     {listing.sourceMode === "fixture" ? <ToneBadge tone="warning">Fixture listing</ToneBadge> : null}
                     {listing.sourceMode === "live" ? <ToneBadge tone="success">Live capture</ToneBadge> : null}
+                    {listing.duplicateOfListingId != null ? (
+                      <button
+                        className="inline-flex"
+                        onClick={() => void onClearDuplicate(listing.id)}
+                        title="Flagged as a cross-portal duplicate. Click to un-flag."
+                        type="button"
+                      >
+                        <ToneBadge tone="warning">Duplicate of #{listing.duplicateOfListingId}</ToneBadge>
+                      </button>
+                    ) : null}
                   </div>
                   <div>
                     <h2 className="text-xl font-semibold leading-tight">{listing.title}</h2>

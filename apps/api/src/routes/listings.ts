@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { getListingById, getSettings, listListings, updateListingEvaluation, updateListingLlmState, updateListingStatus } from "@flathunter/db";
+import { clearListingDuplicate, getListingById, getSettings, listListings, updateListingEvaluation, updateListingLlmState, updateListingStatus } from "@flathunter/db";
 import {
   classifyListingEligibility,
   evaluateListingDeterministically,
@@ -146,6 +146,24 @@ export function registerListingRoutes(app: FastifyInstance, deps: AppDeps) {
     const { id } = idParamsSchema.parse(request.params);
     const payload = listingStatusUpdateSchema.parse(request.body);
     const listing = await updateListingStatus(deps.db, id, payload.userStatus);
+
+    if (!listing) {
+      reply.code(404).send({
+        message: "Listing not found"
+      });
+      return;
+    }
+
+    return listing;
+  });
+
+  app.delete("/api/listings/:id/duplicate", async (request, reply) => {
+    if (!requireSession(request, reply, deps.env)) {
+      return;
+    }
+
+    const { id } = idParamsSchema.parse(request.params);
+    const listing = await clearListingDuplicate(deps.db, id);
 
     if (!listing) {
       reply.code(404).send({

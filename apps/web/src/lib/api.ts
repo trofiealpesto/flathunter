@@ -105,6 +105,10 @@ export const api = {
       body: JSON.stringify(payload)
     }),
   listContactAttempts: (id: number) => apiFetch<ContactAttempt[]>(`/api/listings/${id}/contact-attempts`),
+  clearListingDuplicate: (id: number) =>
+    apiFetch<ListingDetail>(`/api/listings/${id}/duplicate`, {
+      method: "DELETE"
+    }),
   updateListingStatus: (id: number, userStatus: UserStatus) =>
     apiFetch<ListingDetail>(`/api/listings/${id}/status`, {
       method: "PATCH",

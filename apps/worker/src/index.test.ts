@@ -17,6 +17,8 @@ const mocks = vi.hoisted(() => ({
   updateListingEvaluation: vi.fn(),
   getDistrictPriceBaselines: vi.fn(),
   enrichListingCommutes: vi.fn(),
+  listDedupCandidates: vi.fn(),
+  applyDuplicateAssignments: vi.fn(),
   ensureDefaultPortalSources: vi.fn(),
   getSourceAdapter: vi.fn(),
   classifyListingEligibility: vi.fn(),
@@ -39,7 +41,9 @@ vi.mock("@flathunter/db", () => ({
   updatePortalSource: mocks.updatePortalSource,
   listListingsForEvaluation: mocks.listListingsForEvaluation,
   updateListingEvaluation: mocks.updateListingEvaluation,
-  getDistrictPriceBaselines: mocks.getDistrictPriceBaselines
+  getDistrictPriceBaselines: mocks.getDistrictPriceBaselines,
+  listDedupCandidates: mocks.listDedupCandidates,
+  applyDuplicateAssignments: mocks.applyDuplicateAssignments
 }));
 
 vi.mock("./services/commute", () => ({
@@ -77,6 +81,8 @@ describe("runWorkerOnce", () => {
     mocks.connectDb.mockReturnValue({ db, pool });
     mocks.getDistrictPriceBaselines.mockResolvedValue(new Map());
     mocks.enrichListingCommutes.mockResolvedValue({ enriched: 0 });
+    mocks.listDedupCandidates.mockResolvedValue([]);
+    mocks.applyDuplicateAssignments.mockResolvedValue(0);
     mocks.getSettings.mockResolvedValue({
       runtime: {
         scrapeWithFixtures: false,

@@ -3,6 +3,7 @@ export * from "./active-sources";
 export * from "./auth";
 export * from "./contacts";
 export * from "./dashboard";
+export * from "./dedup";
 export * from "./errors";
 export * from "./geo";
 export * from "./llm";

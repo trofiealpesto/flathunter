@@ -1,8 +1,10 @@
 import {
+  applyDuplicateAssignments,
   connectDb,
   getDecryptedPortalCredentials,
   getDecryptedPortalSessionState,
   getDistrictPriceBaselines,
+  listDedupCandidates,
   getPortalSource,
   getSettings,
   listEnabledPortalSourcesDue,
@@ -17,6 +19,7 @@ import {
 } from "@flathunter/db";
 import {
   evaluateListingDeterministically,
+  findDuplicatePairs,
   formatRuntimeError,
   getRecommendedLlmTimeoutProfile,
   isActiveSourcePortal,
@@ -506,6 +509,15 @@ export async function runWorkerOnce({ envInput, fetchImpl = fetch, sleepImpl = s
         fetchImpl,
         scrapeWithFixtures
       });
+    }
+
+    // Cross-portal dedup: flag newer near-identical listings, keep both rows.
+    const dedupCandidates = await listDedupCandidates(db);
+    const duplicateAssignments = findDuplicatePairs(dedupCandidates);
+    const flaggedDuplicates = await applyDuplicateAssignments(db, duplicateAssignments);
+
+    if (flaggedDuplicates > 0) {
+      log("cross-portal duplicates flagged", { flaggedDuplicates });
     }
 
     const commute = await enrichListingCommutes({

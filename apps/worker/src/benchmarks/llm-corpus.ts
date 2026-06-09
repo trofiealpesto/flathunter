@@ -87,6 +87,7 @@ function createListingSummary(
     score: null,
     commuteMinutes: null,
     commuteSource: null,
+    duplicateOfListingId: null,
     userStatus: "NEW",
     eligibilityState: "UNSURE",
     eligibilityReason: null,

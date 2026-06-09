@@ -18,7 +18,10 @@ import {
   getPortalSourceAuthSummary,
   getDashboardStats,
   getListingById,
+  applyDuplicateAssignments,
+  clearListingDuplicate,
   createContactAttempt,
+  listDedupCandidates,
   listContactAttemptsByListing,
   listListings,
   listPortalSources,
@@ -188,6 +191,67 @@ describe("repositories", { timeout: 20_000 }, () => {
       errorMessage: null
     });
     expect(missing).toBeNull();
+  });
+
+  it("flags cross-portal duplicates and hides them from default listings", async () => {
+    const db = await createTestDb();
+
+    const base = {
+      title: "Same flat",
+      description: null,
+      addressLine: "Teststr. 5, 10318 Berlin",
+      city: "Berlin",
+      district: "Lichtenberg",
+      neighborhood: null,
+      latitude: 52.49,
+      longitude: 13.52,
+      rentCold: 700,
+      rentWarm: 900,
+      sizeSqm: 70,
+      rooms: 3,
+      floor: null,
+      availableFrom: null,
+      isFurnished: false,
+      hasBalcony: false,
+      hasElevator: false,
+      rawPayload: null
+    };
+
+    const original = await upsertListing(db, {
+      ...base,
+      portal: "IMMOWELT",
+      portalListingId: "dup-a",
+      url: "https://www.immowelt.de/expose/dup-a",
+      canonicalUrl: "https://www.immowelt.de/expose/dup-a"
+    });
+
+    const copy = await upsertListing(db, {
+      ...base,
+      portal: "KLEINANZEIGEN",
+      portalListingId: "dup-b",
+      url: "https://www.kleinanzeigen.de/s-anzeige/dup-b",
+      canonicalUrl: "https://www.kleinanzeigen.de/s-anzeige/dup-b"
+    });
+
+    const candidates = await listDedupCandidates(db);
+    expect(candidates).toHaveLength(2);
+
+    const flagged = await applyDuplicateAssignments(db, new Map([[copy.id, original.id]]));
+    expect(flagged).toBe(1);
+
+    // Re-applying the same assignment is a no-op.
+    expect(await applyDuplicateAssignments(db, new Map([[copy.id, original.id]]))).toBe(0);
+
+    const defaultList = await listListings(db, {});
+    expect(defaultList.map((listing) => listing.id)).toEqual([original.id]);
+
+    const fullList = await listListings(db, { includeDuplicates: true });
+    expect(fullList).toHaveLength(2);
+    expect(fullList.find((listing) => listing.id === copy.id)?.duplicateOfListingId).toBe(original.id);
+
+    const cleared = await clearListingDuplicate(db, copy.id);
+    expect(cleared?.duplicateOfListingId).toBeNull();
+    expect(await listListings(db, {})).toHaveLength(2);
   });
 
   it("merges app settings patches", async () => {

@@ -37,6 +37,7 @@ const listing: ListingSummary = {
   score: 82,
   commuteMinutes: null,
   commuteSource: null,
+  duplicateOfListingId: null,
   userStatus: "NEW",
   eligibilityState: "UNSURE",
   eligibilityReason: null,

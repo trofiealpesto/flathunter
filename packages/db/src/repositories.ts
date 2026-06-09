@@ -451,6 +451,7 @@ function serializeListingBase(row: ListingRow, officeLocation: OfficeLocation | 
     semanticFitScore: row.semanticFitScore ?? null,
     commuteMinutes: row.commuteMinutes ?? null,
     commuteSource: row.commuteSource ?? null,
+    duplicateOfListingId: row.duplicateOfListingId ?? null,
     userStatus: row.userStatus,
     eligibilityState: row.eligibilityState,
     eligibilityReason: row.eligibilityReason,
@@ -685,6 +686,10 @@ export async function resetListingsIngestionState(db: Database): Promise<ResetLi
 
 export async function listListings(db: Database, filters: ListingFilters) {
   const conditions = [];
+
+  if (!filters.includeDuplicates) {
+    conditions.push(sql`${listings.duplicateOfListingId} IS NULL`);
+  }
 
   if (filters.portal) {
     conditions.push(eq(listings.portal, filters.portal));
@@ -1680,4 +1685,74 @@ export async function getDistrictPriceBaselines(db: Database, options: { sinceDa
   }
 
   return baselines;
+}
+
+export async function listDedupCandidates(db: Database, options: { sinceDays?: number } = {}) {
+  const sinceDays = options.sinceDays ?? 30;
+
+  const rows = await db
+    .select({
+      id: listings.id,
+      portal: listings.portal,
+      rentCold: listings.rentCold,
+      rentWarm: listings.rentWarm,
+      sizeSqm: listings.sizeSqm,
+      rooms: listings.rooms,
+      latitude: listings.latitude,
+      longitude: listings.longitude,
+      addressLine: listings.addressLine,
+      firstSeenAt: listings.firstSeenAt
+    })
+    .from(listings)
+    .where(sql`${listings.lastSeenAt} > NOW() - make_interval(days => ${sinceDays})`);
+
+  return rows.map((row) => ({
+    id: row.id,
+    portal: row.portal,
+    rentCold: toNullableNumber(row.rentCold),
+    rentWarm: toNullableNumber(row.rentWarm),
+    sizeSqm: toNullableNumber(row.sizeSqm),
+    rooms: toNullableNumber(row.rooms),
+    latitude: toNullableNumber(row.latitude),
+    longitude: toNullableNumber(row.longitude),
+    addressLine: row.addressLine,
+    firstSeenAt: row.firstSeenAt.toISOString()
+  }));
+}
+
+export async function applyDuplicateAssignments(db: Database, assignments: Map<number, number>) {
+  let updated = 0;
+
+  for (const [duplicateId, originalId] of assignments) {
+    const result = await db
+      .update(listings)
+      .set({
+        duplicateOfListingId: originalId,
+        updatedAt: new Date()
+      })
+      .where(and(eq(listings.id, duplicateId), sql`${listings.duplicateOfListingId} IS DISTINCT FROM ${originalId}`))
+      .returning({ id: listings.id });
+
+    updated += result.length;
+  }
+
+  return updated;
+}
+
+export async function clearListingDuplicate(db: Database, id: number) {
+  const [row] = await db
+    .update(listings)
+    .set({
+      duplicateOfListingId: null,
+      updatedAt: new Date()
+    })
+    .where(eq(listings.id, id))
+    .returning();
+
+  if (!row) {
+    return null;
+  }
+
+  const settings = await getSettings(db);
+  return serializeListing(row, getOfficeLocation(settings), settings);
 }

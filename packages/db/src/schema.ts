@@ -69,6 +69,7 @@ export const listings = pgTable(
     semanticFitScore: integer("semantic_fit_score"),
     commuteMinutes: integer("commute_minutes"),
     commuteSource: text("commute_source"),
+    duplicateOfListingId: integer("duplicate_of_listing_id"),
     userStatus: userStatusEnum("user_status").notNull().default("NEW"),
     eligibilityState: eligibilityStateEnum("eligibility_state").notNull().default("UNSURE"),
     eligibilityReason: text("eligibility_reason"),
