@@ -1,6 +1,7 @@
 export * from "./analysis";
 export * from "./active-sources";
 export * from "./auth";
+export * from "./contacts";
 export * from "./dashboard";
 export * from "./errors";
 export * from "./geo";

@@ -21,7 +21,9 @@ import type {
   SourceAuthStatus,
   SourceRunMode,
   SourceRunStatus,
-  UserStatus
+  UserStatus,
+  ContactAttempt,
+  ContactAttemptCreate
 } from "@flathunter/shared";
 import {
   analysisFlags,
@@ -45,6 +47,7 @@ import type { Database } from "./client";
 import { decryptJson, encryptJson } from "./secrets";
 import {
   appSettings,
+  contactAttempts,
   geocodeCache,
   listings,
   portalCredentials,
@@ -764,6 +767,67 @@ export async function updateListingStatus(db: Database, id: number, userStatus: 
 
   const settings = await getSettings(db);
   return serializeListing(row, getOfficeLocation(settings), settings);
+}
+
+type ContactAttemptRow = typeof contactAttempts.$inferSelect;
+
+function serializeContactAttempt(row: ContactAttemptRow): ContactAttempt {
+  return {
+    id: row.id,
+    listingId: row.listingId,
+    timestamp: row.timestamp.toISOString(),
+    channel: row.channel,
+    status: row.status,
+    messageSubject: row.messageSubject,
+    messageBody: row.messageBody,
+    errorMessage: row.errorMessage
+  };
+}
+
+export async function createContactAttempt(
+  db: Database,
+  listingId: number,
+  payload: ContactAttemptCreate
+): Promise<ContactAttempt | null> {
+  const listing = await db.query.listings.findFirst({
+    where: eq(listings.id, listingId),
+    columns: { id: true }
+  });
+
+  if (!listing) {
+    return null;
+  }
+
+  const [row] = await db
+    .insert(contactAttempts)
+    .values({
+      listingId,
+      channel: payload.channel,
+      status: payload.status,
+      messageSubject: payload.messageSubject,
+      messageBody: payload.messageBody,
+      errorMessage: payload.errorMessage
+    })
+    .returning();
+
+  // A successful or manual attempt means the listing has been contacted.
+  if (payload.status !== "FAILED") {
+    await db
+      .update(listings)
+      .set({ userStatus: "CONTACTED", updatedAt: new Date() })
+      .where(eq(listings.id, listingId));
+  }
+
+  return serializeContactAttempt(row);
+}
+
+export async function listContactAttemptsByListing(db: Database, listingId: number): Promise<ContactAttempt[]> {
+  const rows = await db.query.contactAttempts.findMany({
+    where: eq(contactAttempts.listingId, listingId),
+    orderBy: [desc(contactAttempts.timestamp), desc(contactAttempts.id)]
+  });
+
+  return rows.map(serializeContactAttempt);
 }
 
 export async function updateListingEvaluation(

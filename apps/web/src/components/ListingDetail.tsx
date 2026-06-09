@@ -23,6 +23,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { ToneBadge, toneFromState } from "./ToneBadge";
+import { ListingApplySection } from "./ListingApplySection";
 import { SurfaceCard } from "./SurfaceCard";
 import { formatDistance, getGeoSourceLabel } from "../lib/geo";
 import { getListingPrimaryAction } from "../lib/listingDetail";
@@ -419,6 +420,8 @@ export function ListingDetail({
                 </Button>
               ) : null}
             </section>
+
+            <ListingApplySection listing={listing} onContacted={() => onStatusChange("CONTACTED")} />
 
             <section className="rounded-lg border p-4">
               <h3 className="font-medium">Description</h3>

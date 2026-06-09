@@ -9,6 +9,7 @@ import type {
   SourceAuthRunnerResult
 } from "./lib/source-auth";
 import { registerAuthRoutes } from "./routes/auth";
+import { registerContactRoutes } from "./routes/contacts";
 import { registerGeoRoutes } from "./routes/geo";
 import { registerListingRoutes } from "./routes/listings";
 import { registerSettingsRoutes } from "./routes/settings";
@@ -40,6 +41,7 @@ export async function buildApp(deps: AppDeps) {
   }));
 
   registerAuthRoutes(app, deps);
+  registerContactRoutes(app, deps);
   registerGeoRoutes(app, deps);
   registerListingRoutes(app, deps);
   registerSettingsRoutes(app, deps);

@@ -17,6 +17,9 @@ import {
   getSettings,
   getPortalSourceAuthSummary,
   getDashboardStats,
+  getListingById,
+  createContactAttempt,
+  listContactAttemptsByListing,
   listListings,
   listPortalSources,
   markPortalRun,
@@ -113,6 +116,78 @@ describe("repositories", { timeout: 20_000 }, () => {
     expect(listings[0]?.title).toBe("Updated title");
     expect(listings[0]?.rentWarm).toBe(1450);
     expect(listings[0]?.sourceMode).toBeNull();
+  });
+
+  it("records contact attempts and flips the listing to CONTACTED", async () => {
+    const db = await createTestDb();
+
+    const listing = await upsertListing(db, {
+      portal: "INBERLINWOHNEN",
+      portalListingId: "ESQ 1/2/3",
+      url: "https://www.howoge.de/detail/1-2-3.html",
+      canonicalUrl: "https://www.howoge.de/detail/1-2-3.html",
+      title: "Stadteigene Wohnung",
+      description: "3 Zimmer",
+      addressLine: "Teststr. 1, 10318 Lichtenberg",
+      city: "Berlin",
+      district: "Lichtenberg",
+      neighborhood: null,
+      latitude: null,
+      longitude: null,
+      rentCold: 600,
+      rentWarm: 800,
+      sizeSqm: 60,
+      rooms: 3,
+      floor: null,
+      availableFrom: null,
+      isFurnished: false,
+      hasBalcony: true,
+      hasElevator: false,
+      rawPayload: null
+    });
+
+    const attempt = await createContactAttempt(db, listing.id, {
+      channel: "EMAIL",
+      status: "SENT",
+      messageSubject: "Bewerbung Wohnung Lichtenberg",
+      messageBody: "Sehr geehrte Damen und Herren, ...",
+      errorMessage: null
+    });
+
+    expect(attempt).toMatchObject({
+      listingId: listing.id,
+      channel: "EMAIL",
+      status: "SENT",
+      messageSubject: "Bewerbung Wohnung Lichtenberg"
+    });
+
+    const updated = await getListingById(db, listing.id);
+    expect(updated?.userStatus).toBe("CONTACTED");
+
+    const history = await listContactAttemptsByListing(db, listing.id);
+    expect(history).toHaveLength(1);
+    expect(history[0].id).toBe(attempt?.id);
+
+    // FAILED attempts are recorded but do not flip the status back.
+    const failed = await createContactAttempt(db, listing.id, {
+      channel: "PORTAL_FORM",
+      status: "FAILED",
+      messageSubject: null,
+      messageBody: null,
+      errorMessage: "form submit failed"
+    });
+
+    expect(failed?.status).toBe("FAILED");
+    expect(await listContactAttemptsByListing(db, listing.id)).toHaveLength(2);
+
+    const missing = await createContactAttempt(db, 99999, {
+      channel: "EMAIL",
+      status: "SENT",
+      messageSubject: null,
+      messageBody: null,
+      errorMessage: null
+    });
+    expect(missing).toBeNull();
   });
 
   it("merges app settings patches", async () => {

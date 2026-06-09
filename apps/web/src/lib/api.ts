@@ -1,6 +1,9 @@
 import type {
   AppSettings,
   AppSettingsPatch,
+  ContactAttempt,
+  ContactAttemptCreate,
+  ContactMessage,
   DashboardStats,
   GeoSearchResult,
   ListingDetail,
@@ -92,6 +95,16 @@ export const api = {
     apiFetch<ListingDetail>(`/api/listings/${id}/llm-analysis`, {
       method: "POST"
     }),
+  generateContactMessage: (id: number) =>
+    apiFetch<ContactMessage>(`/api/listings/${id}/contact-message`, {
+      method: "POST"
+    }),
+  createContactAttempt: (id: number, payload: ContactAttemptCreate) =>
+    apiFetch<ContactAttempt>(`/api/listings/${id}/contact-attempts`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    }),
+  listContactAttempts: (id: number) => apiFetch<ContactAttempt[]>(`/api/listings/${id}/contact-attempts`),
   updateListingStatus: (id: number, userStatus: UserStatus) =>
     apiFetch<ListingDetail>(`/api/listings/${id}/status`, {
       method: "PATCH",

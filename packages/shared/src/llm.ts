@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import type { AnalysisFlag, EligibilityState, ListingSummary } from "./listings";
 import type { AppSettings, LlmProvider } from "./settings";
 import { providerDefaults } from "./settings";
+import type { ContactMessage } from "./contacts";
+import { contactMessageJsonSchema, contactMessageSchema } from "./contacts";
 import type { LlmAnalysis, LlmErrorKind } from "./llm-analysis";
 import type { ClassificationWithSummary, EnglishListingAnalyst, SemanticClassification } from "./semantic";
 import {
@@ -1234,4 +1236,54 @@ export async function generateListingEnglishAnalyst(
       updatedAt: new Date().toISOString()
     }
   };
+}
+
+function buildApplicationMessagePrompt(listing: LlmListingInput, settings: AppSettings) {
+  const profile = settings.profile;
+
+  return [
+    "You write rental application messages for a Berlin apartment hunt.",
+    "Write in German with a formal, polite tone (Sie form). Plain text only, no markdown.",
+    "The body must be roughly 120-180 words: brief intro of the applicant, why this specific listing fits, availability for a viewing, and a polite closing with the applicant's name.",
+    "Mention concrete listing details (district, rooms, size) naturally — never invent facts that are not in the data below.",
+    "Do not mention scores, dashboards, or that this message was generated.",
+    "Return strict JSON matching the schema.",
+    `Applicant name: ${stringifyPromptValue(profile.fullName)}`,
+    `Applicant bio: ${stringifyPromptValue(profile.shortBio)}`,
+    `Applicant email: ${stringifyPromptValue(profile.email)}`,
+    `Applicant phone: ${stringifyPromptValue(profile.phone)}`,
+    `Listing title: ${truncatePromptText(listing.title, PROMPT_TITLE_MAX_CHARS)}`,
+    `Listing description: ${truncatePromptText(listing.description, PROMPT_DESCRIPTION_MAX_CHARS)}`,
+    `District: ${stringifyPromptValue(listing.district)}`,
+    `Address: ${stringifyPromptValue(listing.addressLine)}`,
+    `Warm rent: ${stringifyPromptValue(listing.rentWarm ?? listing.rentCold)}`,
+    `Rooms: ${stringifyPromptValue(listing.rooms)}`,
+    `Size sqm: ${stringifyPromptValue(listing.sizeSqm)}`,
+    `Available from: ${stringifyPromptValue(listing.availableFrom)}`,
+    `Listing summary (English): ${stringifyPromptValue(listing.llmAnalysis?.summary ?? null)}`,
+    `Fit note (English): ${stringifyPromptValue(listing.llmAnalysis?.fitNote ?? null)}`,
+    `Applicant search notes: ${stringifyPromptValue(settings.semanticRules.notes)}`
+  ].join("\n");
+}
+
+/**
+ * On-demand draft of a German application message for one listing.
+ * Always uses the Gemini analyst model — outside the classifier budget machinery.
+ */
+export async function generateApplicationMessage(
+  listing: LlmListingInput,
+  settings: AppSettings,
+  deps: EnglishAnalystDeps
+): Promise<ContactMessage> {
+  return callGeminiJson({
+    apiKey: deps.apiKey,
+    baseUrl: deps.baseUrl,
+    model: deps.analystModel,
+    fetchImpl: deps.fetchImpl,
+    timeoutMs: deps.analystTimeoutMs ?? DEFAULT_ANALYST_TIMEOUT_MS,
+    responseJsonSchema: contactMessageJsonSchema as unknown as Record<string, unknown>,
+    systemInstruction: "You are a precise assistant that writes German rental application messages. Output only valid JSON.",
+    userPrompt: buildApplicationMessagePrompt(listing, settings),
+    parse: (value) => contactMessageSchema.parse(value)
+  });
 }
