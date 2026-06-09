@@ -4,11 +4,18 @@ import { retiredSourcePortals, type AppSettings, type Portal } from "@flathunter
 import type { WorkerEnv } from "../config";
 import { flatsforfriendzAdapter } from "./adapters/flatsforfriendz";
 import { immoweltAdapter } from "./adapters/immowelt";
+import { inberlinwohnenAdapter } from "./adapters/inberlinwohnen";
 import { kleinanzeigenAdapter } from "./adapters/kleinanzeigen";
 import { wgGesuchtAdapter } from "./adapters/wg-gesucht";
 import type { SourceAdapter } from "./types";
 
-export const sourceAdapters = [flatsforfriendzAdapter, immoweltAdapter, wgGesuchtAdapter, kleinanzeigenAdapter] as const;
+export const sourceAdapters = [
+  flatsforfriendzAdapter,
+  immoweltAdapter,
+  wgGesuchtAdapter,
+  kleinanzeigenAdapter,
+  inberlinwohnenAdapter
+] as const;
 
 const adaptersByPortal = new Map<Portal, SourceAdapter>(sourceAdapters.map((adapter) => [adapter.portal, adapter]));
 const portalsDisabledUntilAuth = new Set<Portal>(["WG_GESUCHT"]);
@@ -57,6 +64,7 @@ export async function ensureDefaultPortalSources(db: Database, settings: AppSett
       portal: adapter.portal,
       searchUrl: defaults.searchUrl,
       searchParams: defaults.searchParams,
+      scrapeIntervalMinutes: defaults.scrapeIntervalMinutes,
       enabled: !portalsDisabledUntilAuth.has(adapter.portal)
     });
   }

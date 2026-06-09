@@ -3,7 +3,7 @@ import { z } from "zod";
 import { listingGeoSourceSchema } from "./geo";
 import { llmAnalysisSchema, llmAnalysisStatusSchema } from "./llm-analysis";
 
-export const portals = ["IMMOWELT", "IMMOSCOUT24", "KLEINANZEIGEN", "WG_GESUCHT", "FLATSFORFRIENDZ"] as const;
+export const portals = ["IMMOWELT", "IMMOSCOUT24", "KLEINANZEIGEN", "WG_GESUCHT", "FLATSFORFRIENDZ", "INBERLINWOHNEN"] as const;
 export const userStatuses = ["NEW", "REVIEWED", "CONTACTED", "REJECTED", "BLACKLISTED"] as const;
 export const eligibilityStates = ["MATCH", "UNSURE", "REJECT"] as const;
 export const contactChannels = ["PORTAL_FORM", "EMAIL", "PHONE", "OTHER"] as const;

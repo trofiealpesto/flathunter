@@ -180,6 +180,18 @@ const sourceAuthConfigs: Record<Portal, SourceAuthConfig> = {
     passwordSelectors: defaultPasswordSelectors,
     nextSelectors: defaultNextSelectors,
     submitSelectors: defaultSubmitSelectors
+  },
+  INBERLINWOHNEN: {
+    optionalCredentials: true,
+    loginUrl: "https://inberlinwohnen.de/wohnungsfinder/",
+    validationUrl: "https://inberlinwohnen.de/wohnungsfinder/",
+    blockedIndicators: [],
+    loginIndicators: [],
+    loginUrlIndicators: [],
+    loginIdentifierSelectors: defaultLoginIdentifierSelectors,
+    passwordSelectors: defaultPasswordSelectors,
+    nextSelectors: defaultNextSelectors,
+    submitSelectors: defaultSubmitSelectors
   }
 };
 

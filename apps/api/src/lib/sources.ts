@@ -28,6 +28,7 @@ export async function ensureDefaultPortalSources(db: Database) {
     portal: (typeof activeSourcePortals)[number];
     searchUrl: string;
     searchParams: Record<string, unknown>;
+    scrapeIntervalMinutes?: number;
   }> = [
     {
       portal: "IMMOWELT",
@@ -68,6 +69,15 @@ export async function ensureDefaultPortalSources(db: Database) {
         districts: settings.search.districts,
         category: "wohnung-mieten"
       }
+    },
+    {
+      portal: "INBERLINWOHNEN",
+      searchUrl: "https://inberlinwohnen.de/wohnungsfinder/",
+      searchParams: {
+        city: settings.search.city,
+        districts: settings.search.districts
+      },
+      scrapeIntervalMinutes: 5
     }
   ];
 
@@ -89,6 +99,7 @@ export async function ensureDefaultPortalSources(db: Database) {
         portal: definition.portal,
         searchUrl: definition.searchUrl,
         searchParams: definition.searchParams,
+        scrapeIntervalMinutes: definition.scrapeIntervalMinutes,
         enabled: !portalsDisabledUntilAuth.has(definition.portal)
       });
       continue;

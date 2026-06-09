@@ -122,6 +122,16 @@ const portalCapabilities: Record<Portal, PortalSourceCapabilities> = {
     cloudCompatible: false,
     requiresAuthSetup: false,
     setupHint: "Scraping source. No account setup required; browsing is public. Login can be configured for higher rate limits."
+  },
+  INBERLINWOHNEN: {
+    supportsLogin: false,
+    supportsCaptchaSolver: false,
+    supportsDetailFallback: false,
+    sourceKind: "scraping",
+    readiness: "secondary",
+    cloudCompatible: true,
+    requiresAuthSetup: false,
+    setupHint: "Aggregator for Berlin's state-owned housing companies. No account setup required; listings vanish quickly, so keep the scrape interval short."
   }
 };
 

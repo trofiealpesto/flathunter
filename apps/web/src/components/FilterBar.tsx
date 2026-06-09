@@ -45,6 +45,7 @@ export function FilterBar({ filters, hasActiveFilters, onChange, onReset }: Filt
               <SelectItem value="KLEINANZEIGEN">Kleinanzeigen</SelectItem>
               <SelectItem value="WG_GESUCHT">WG-Gesucht</SelectItem>
               <SelectItem value="FLATSFORFRIENDZ">Flatsforfriendz</SelectItem>
+              <SelectItem value="INBERLINWOHNEN">inBerlinWohnen</SelectItem>
             </SelectContent>
           </Select>
         </FormField>

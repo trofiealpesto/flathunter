@@ -53,6 +53,7 @@ export type SourceScrapeResult = {
 export type SourceEnsureDefaults = {
   searchUrl: string;
   searchParams: PortalSearchParams;
+  scrapeIntervalMinutes?: number;
 };
 
 export type SourceAdapterContext = {

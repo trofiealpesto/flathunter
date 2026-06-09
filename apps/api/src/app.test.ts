@@ -393,6 +393,109 @@ describe("api app", () => {
     });
   });
 
+  it("drafts, records, and lists contact attempts for a listing", async () => {
+    fetchImpl.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      expect(url).toContain(":generateContent");
+      return new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      subject: "Bewerbung: 3-Zimmer-Wohnung in Mitte",
+                      body: "Sehr geehrte Damen und Herren, hiermit bewerbe ich mich um die Wohnung. Mit freundlichen Grüßen"
+                    })
+                  }
+                ]
+              }
+            }
+          ]
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    });
+
+    const cookie = buildSessionCookieValue(
+      {
+        login: "giuva",
+        name: "Giuva",
+        avatarUrl: null,
+        expiresAt: new Date(Date.now() + 1000 * 60).toISOString()
+      },
+      "1234567890123456"
+    );
+
+    const draftResponse = await app.inject({
+      method: "POST",
+      url: "/api/listings/1/contact-message",
+      cookies: {
+        fh_session: cookie
+      }
+    });
+
+    expect(draftResponse.statusCode).toBe(200);
+    expect(draftResponse.json()).toEqual({
+      subject: "Bewerbung: 3-Zimmer-Wohnung in Mitte",
+      body: "Sehr geehrte Damen und Herren, hiermit bewerbe ich mich um die Wohnung. Mit freundlichen Grüßen"
+    });
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/api/listings/1/contact-attempts",
+      cookies: {
+        fh_session: cookie
+      },
+      payload: {
+        channel: "EMAIL",
+        status: "SENT",
+        messageSubject: "Bewerbung: 3-Zimmer-Wohnung in Mitte",
+        messageBody: "Sehr geehrte Damen und Herren, ..."
+      }
+    });
+
+    expect(createResponse.statusCode).toBe(201);
+    expect(createResponse.json()).toMatchObject({
+      listingId: 1,
+      channel: "EMAIL",
+      status: "SENT"
+    });
+
+    const listingResponse = await app.inject({
+      method: "GET",
+      url: "/api/listings/1",
+      cookies: {
+        fh_session: cookie
+      }
+    });
+    expect(listingResponse.json().userStatus).toBe("CONTACTED");
+
+    const historyResponse = await app.inject({
+      method: "GET",
+      url: "/api/listings/1/contact-attempts",
+      cookies: {
+        fh_session: cookie
+      }
+    });
+
+    expect(historyResponse.statusCode).toBe(200);
+    expect(historyResponse.json()).toHaveLength(1);
+
+    const missingResponse = await app.inject({
+      method: "POST",
+      url: "/api/listings/99999/contact-attempts",
+      cookies: {
+        fh_session: cookie
+      },
+      payload: {
+        channel: "EMAIL"
+      }
+    });
+    expect(missingResponse.statusCode).toBe(404);
+  });
+
   it("returns a readable error when English analyst generation fails", async () => {
     fetchImpl.mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -620,7 +723,7 @@ describe("api app", () => {
     });
 
     expect(listResponse.statusCode).toBe(200);
-    expect(listResponse.json()).toHaveLength(3);
+    expect(listResponse.json()).toHaveLength(5);
     expect(listResponse.json()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -637,6 +740,18 @@ describe("api app", () => {
         }),
         expect.objectContaining({
           portal: "WG_GESUCHT"
+        }),
+        expect.objectContaining({
+          portal: "KLEINANZEIGEN"
+        }),
+        expect.objectContaining({
+          portal: "INBERLINWOHNEN",
+          capabilities: expect.objectContaining({
+            sourceKind: "scraping",
+            readiness: "secondary",
+            cloudCompatible: true,
+            requiresAuthSetup: false
+          })
         })
       ])
     );
@@ -723,25 +838,8 @@ describe("api app", () => {
         }
       }),
       app.inject({
-        method: "PATCH",
-        url: "/api/sources/KLEINANZEIGEN",
-        cookies: {
-          fh_session: cookie
-        },
-        payload: {
-          enabled: true
-        }
-      }),
-      app.inject({
-        method: "GET",
-        url: "/api/sources/KLEINANZEIGEN/auth",
-        cookies: {
-          fh_session: cookie
-        }
-      }),
-      app.inject({
         method: "POST",
-        url: "/api/sources/KLEINANZEIGEN/auth/bootstrap/start",
+        url: "/api/sources/IMMOSCOUT24/auth/refresh",
         cookies: {
           fh_session: cookie
         }
