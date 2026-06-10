@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => ({
   getSourceAdapter: vi.fn(),
   classifyListingEligibility: vi.fn(),
   buildSemanticClassificationFingerprint: vi.fn(),
+  buildAnalysisInputFingerprint: vi.fn(),
+  buildDeterministicTemplateAnalysis: vi.fn(),
   evaluateListingDeterministically: vi.fn()
 }));
 
@@ -57,7 +59,9 @@ vi.mock("./sources/registry", () => ({
 
 vi.mock("./services/semantic", () => ({
   classifyListingEligibility: mocks.classifyListingEligibility,
-  buildSemanticClassificationFingerprint: mocks.buildSemanticClassificationFingerprint
+  buildSemanticClassificationFingerprint: mocks.buildSemanticClassificationFingerprint,
+  buildAnalysisInputFingerprint: mocks.buildAnalysisInputFingerprint,
+  buildDeterministicTemplateAnalysis: mocks.buildDeterministicTemplateAnalysis
 }));
 
 vi.mock("@flathunter/shared", async (importOriginal) => {
@@ -136,6 +140,19 @@ describe("runWorkerOnce", () => {
       didRetry: true
     });
     mocks.buildSemanticClassificationFingerprint.mockReturnValue("test-fingerprint");
+    mocks.buildAnalysisInputFingerprint.mockReturnValue("test-analysis-fingerprint");
+    mocks.buildDeterministicTemplateAnalysis.mockResolvedValue({
+      sourceLanguage: "English",
+      translatedTitle: null,
+      translatedDescription: null,
+      summary: "Template summary.",
+      fitNote: "Template fit note.",
+      model: "deterministic",
+      translationModel: null,
+      promptVersion: "classification-v3",
+      inputFingerprint: "test-analysis-fingerprint",
+      updatedAt: new Date().toISOString()
+    });
     mocks.evaluateListingDeterministically.mockReturnValue({
       score: 77,
       eligibilityState: "UNSURE",
@@ -518,6 +535,79 @@ describe("runWorkerOnce", () => {
         eligibilityReason: "cached analyst verdict",
         semanticFlags: ["balcony_mentioned", "elevator_mentioned"],
         semanticModel: "gemini-2.5-flash"
+      })
+    );
+  });
+
+  it("persists a template analysis for deterministic REJECT listings without calling the classifier", async () => {
+    mocks.listEnabledPortalSourcesDue.mockResolvedValue([]);
+    mocks.getSettings.mockResolvedValue({
+      runtime: {
+        scrapeWithFixtures: false,
+        enableSemanticClassifier: true,
+        enableLlmEnrichment: true,
+        llmProvider: "gemini",
+        llmClassifierModel: "gemini-2.5-flash-lite",
+        llmAnalystModel: "gemini-2.5-flash"
+      }
+    });
+    mocks.listListingsForEvaluation.mockResolvedValue([
+      {
+        id: "listing-1",
+        title: "WG-Zimmer mit WBS",
+        description: "Nur mit WBS.",
+        eligibilityState: "NEW",
+        eligibilityReason: null,
+        semanticFlags: [],
+        semanticModel: null,
+        semanticInputFingerprint: null,
+        llmLastErrorKind: null,
+        llmAnalysis: null,
+        llmAnalysisStatus: "missing",
+        analysisFlags: []
+      }
+    ]);
+    mocks.evaluateListingDeterministically.mockReturnValue({
+      score: 20,
+      eligibilityState: "REJECT",
+      reason: "Deterministic reject: WBS required.",
+      analysisFlags: ["wbs_required"],
+      shouldRunSemanticClassifier: false
+    });
+
+    const { runWorkerOnce } = await import("./index");
+
+    await runWorkerOnce({
+      envInput: {
+        NODE_ENV: "test",
+        DATABASE_URL: "postgres://unused",
+        PORTAL_SECRETS_KEY: "portal-secrets-key-for-tests",
+        GEMINI_API_KEY: "gemini-test-key",
+        GEMINI_API_BASE_URL: "https://generativelanguage.googleapis.com/v1beta",
+        IMMOWELT_SEARCH_URL: "https://www.immowelt.de/liste/berlin/wohnungen/mieten",
+        IMMOWELT_ENABLE_LIVE_BROWSER: "true",
+        WORKER_DEV_INTERVAL_MS: "300000"
+      }
+    });
+
+    expect(mocks.classifyListingEligibility).not.toHaveBeenCalled();
+    expect(mocks.buildDeterministicTemplateAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "listing-1" }),
+      "test-analysis-fingerprint",
+      expect.objectContaining({
+        fitNote: "Deterministic reject: WBS required.",
+        translate: false
+      })
+    );
+    expect(mocks.updateListingEvaluation).toHaveBeenCalledWith(
+      db,
+      "listing-1",
+      expect.objectContaining({
+        eligibilityState: "REJECT",
+        llmAnalysis: expect.objectContaining({
+          inputFingerprint: "test-analysis-fingerprint",
+          model: "deterministic"
+        })
       })
     );
   });

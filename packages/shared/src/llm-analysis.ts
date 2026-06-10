@@ -1,8 +1,9 @@
 import { z } from "zod";
 
 export const llmAnalysisPromptVersion = "english-analyst-v2";
-// Bumped to "classification-v2": translation extracted to MyMemory; deterministic MATCH restored.
-export const semanticClassificationPromptVersion = "classification-v2";
+// Bumped to "classification-v3": fingerprint scheme unified (canonical analysis fingerprint)
+// and de-volatilized (no time-varying score/reason inputs).
+export const semanticClassificationPromptVersion = "classification-v3";
 
 export const llmErrorKindSchema = z.enum([
   "timeout",

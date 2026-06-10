@@ -32,7 +32,12 @@ import { pathToFileURL } from "node:url";
 import { readWorkerEnv } from "./config";
 import { log } from "./lib/logger";
 import { enrichListingCommutes } from "./services/commute";
-import { buildDeterministicMatchAnalysis, buildSemanticClassificationFingerprint, classifyListingEligibility } from "./services/semantic";
+import {
+  buildAnalysisInputFingerprint,
+  buildDeterministicTemplateAnalysis,
+  buildSemanticClassificationFingerprint,
+  classifyListingEligibility
+} from "./services/semantic";
 import { ensureDefaultPortalSources, getSourceAdapter } from "./sources/registry";
 import type { SourceCredentials, SourceScrapeResult, SourceSessionState } from "./sources/types";
 
@@ -163,11 +168,8 @@ async function evaluateReviewQueue({
     let llmAnalysis: LlmAnalysis | null | undefined = undefined;
 
     const semanticClassifierEnabled = settings.runtime.enableSemanticClassifier && deterministic.shouldRunSemanticClassifier;
-    const inputFingerprint = buildSemanticClassificationFingerprint(candidate, settings, {
-      deterministicScore: deterministic.score,
-      deterministicReason: deterministic.reason,
-      analysisFlags: deterministic.analysisFlags
-    });
+    const inputFingerprint = buildSemanticClassificationFingerprint(candidate, settings, deterministic.analysisFlags);
+    const analysisFingerprint = buildAnalysisInputFingerprint(candidate, settings);
     const canReuseCachedClassification =
       semanticClassifierEnabled &&
       candidate.semanticInputFingerprint === inputFingerprint;
@@ -185,10 +187,22 @@ async function evaluateReviewQueue({
     let semanticLastErrorKind = undefined;
     let semanticLastErrorAt = undefined;
 
-    // For deterministic MATCH: build translation + template analysis via MyMemory (no LLM).
-    // Reuse if fingerprint unchanged.
-    if (deterministic.eligibilityState === "MATCH" && candidate.llmAnalysis?.inputFingerprint !== inputFingerprint) {
-      llmAnalysis = await buildDeterministicMatchAnalysis(candidate, inputFingerprint, { fetchImpl });
+    // Deterministic MATCH/REJECT verdicts get a cheap template analysis (no LLM):
+    // MATCH with MyMemory translation, REJECT without (not worth the quota).
+    // Skipped when the stored analysis already carries the current fingerprint.
+    if (
+      (deterministic.eligibilityState === "MATCH" || deterministic.eligibilityState === "REJECT") &&
+      candidate.llmAnalysis?.inputFingerprint !== analysisFingerprint
+    ) {
+      llmAnalysis = await buildDeterministicTemplateAnalysis(candidate, analysisFingerprint, {
+        fitNote:
+          deterministic.eligibilityState === "MATCH"
+            ? "Meets all core search criteria: price, size, and rooms within target range."
+            : deterministic.reason,
+        translate: deterministic.eligibilityState === "MATCH",
+        previousAnalysis: candidate.llmAnalysis,
+        fetchImpl
+      });
     }
 
     const hasClassifierBudget = semanticClassifierCalls < env.GEMINI_CLASSIFIER_MAX_PER_RUN;

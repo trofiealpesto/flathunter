@@ -1,6 +1,6 @@
 export {
-  buildDeterministicMatchAnalysis,
-  buildEnglishAnalystFingerprint,
+  buildAnalysisInputFingerprint,
+  buildDeterministicTemplateAnalysis,
   buildSemanticClassificationFingerprint,
   classifyListingEligibility,
   generateListingEnglishAnalyst,

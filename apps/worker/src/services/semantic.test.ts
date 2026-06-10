@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  buildEnglishAnalystFingerprint,
+  buildAnalysisInputFingerprint,
+  buildDeterministicTemplateAnalysis,
   buildSemanticClassificationFingerprint,
   classifyListingEligibility,
   defaultAppSettings,
@@ -90,12 +91,7 @@ function buildUnifiedPayload(
 
 describe("classifyListingEligibility", () => {
   it("includes classifier fallback settings in the semantic fingerprint", () => {
-    const context = {
-      deterministicScore: 82,
-      deterministicReason: "Deterministic review needed: score 82; no strong text signals.",
-      analysisFlags: []
-    };
-    const baseline = buildSemanticClassificationFingerprint(listing, defaultAppSettings, context);
+    const baseline = buildSemanticClassificationFingerprint(listing, defaultAppSettings, []);
 
     expect(
       buildSemanticClassificationFingerprint(
@@ -107,7 +103,7 @@ describe("classifyListingEligibility", () => {
             llmClassifierFallbackModel: "gemini-2.5-pro"
           }
         },
-        context
+        []
       )
     ).not.toBe(baseline);
     expect(
@@ -120,7 +116,7 @@ describe("classifyListingEligibility", () => {
             llmClassifierFallbackEnabled: false
           }
         },
-        context
+        []
       )
     ).not.toBe(baseline);
     expect(
@@ -133,8 +129,26 @@ describe("classifyListingEligibility", () => {
             llmClassifierFallbackMinScore: 90
           }
         },
-        context
+        []
       )
+    ).not.toBe(baseline);
+  });
+
+  it("keeps the semantic fingerprint stable when only score or timestamps change", () => {
+    const baseline = buildSemanticClassificationFingerprint(listing, defaultAppSettings, ["long_term"]);
+
+    expect(
+      buildSemanticClassificationFingerprint(
+        { ...listing, score: 12, firstSeenAt: "2020-01-01T00:00:00.000Z" },
+        defaultAppSettings,
+        ["long_term"]
+      )
+    ).toBe(baseline);
+    expect(
+      buildSemanticClassificationFingerprint(listing, defaultAppSettings, [])
+    ).not.toBe(baseline);
+    expect(
+      buildSemanticClassificationFingerprint({ ...listing, title: "Changed title" }, defaultAppSettings, ["long_term"])
     ).not.toBe(baseline);
   });
 
@@ -166,12 +180,14 @@ describe("classifyListingEligibility", () => {
     expect(result.usedFallback).toBe(false);
     expect(result.eligibilityState).toBe("MATCH");
     expect(result.inputFingerprint).toBe(
-      buildSemanticClassificationFingerprint(listing, defaultAppSettings, {
-        deterministicScore: 82,
-        deterministicReason: "Deterministic review needed: score 82; long-term language, balcony mentioned, elevator mentioned.",
-        analysisFlags: ["long_term", "balcony_mentioned", "elevator_mentioned"]
-      })
+      buildSemanticClassificationFingerprint(listing, defaultAppSettings, [
+        "long_term",
+        "balcony_mentioned",
+        "elevator_mentioned"
+      ])
     );
+    // The persisted analysis carries the canonical fingerprint, not the classifier cache key.
+    expect(result.llmAnalysis?.inputFingerprint).toBe(buildAnalysisInputFingerprint(listing, defaultAppSettings));
   });
 
   it("escalates high-score Gemma UNSURE results to the Flash fallback", async () => {
@@ -485,7 +501,7 @@ describe("generateListingEnglishAnalyst", () => {
     expect(result.translationSkipped).toBe(true);
     expect(result.llmAnalysis.translationModel).toBeNull();
     expect(result.llmAnalysis.model).toBe("gemini-2.5-flash");
-    expect(result.inputFingerprint).toBe(buildEnglishAnalystFingerprint(listing, defaultAppSettings));
+    expect(result.inputFingerprint).toBe(buildAnalysisInputFingerprint(listing, defaultAppSettings));
   });
 
   it("returns integrated translation and analysis for German listings", async () => {
@@ -543,5 +559,88 @@ describe("generateListingEnglishAnalyst", () => {
         fetchImpl
       })
     ).rejects.toThrow("API key not valid. Please pass a valid API key.");
+  });
+});
+
+describe("buildAnalysisInputFingerprint", () => {
+  it("is invariant under time-varying fields and model config", () => {
+    const baseline = buildAnalysisInputFingerprint(listing, defaultAppSettings);
+    const aged: ListingSummary = { ...listing, score: 5, semanticFlags: ["LONG_TERM"], firstSeenAt: "2020-01-01T00:00:00.000Z" };
+
+    expect(buildAnalysisInputFingerprint(aged, defaultAppSettings)).toBe(baseline);
+    expect(
+      buildAnalysisInputFingerprint(listing, {
+        ...defaultAppSettings,
+        runtime: { ...defaultAppSettings.runtime, llmAnalystModel: "gemini-2.5-pro" }
+      })
+    ).toBe(baseline);
+  });
+
+  it("changes when listing content or analysis-shaping settings change", () => {
+    const baseline = buildAnalysisInputFingerprint(listing, defaultAppSettings);
+
+    expect(buildAnalysisInputFingerprint({ ...listing, title: "Changed title" }, defaultAppSettings)).not.toBe(baseline);
+    expect(
+      buildAnalysisInputFingerprint(listing, {
+        ...defaultAppSettings,
+        semanticRules: { ...defaultAppSettings.semanticRules, notes: "different notes" }
+      })
+    ).not.toBe(baseline);
+    expect(
+      buildAnalysisInputFingerprint(listing, {
+        ...defaultAppSettings,
+        scoring: { ...defaultAppSettings.scoring, maxWarmRent: defaultAppSettings.scoring.maxWarmRent + 100 }
+      })
+    ).not.toBe(baseline);
+  });
+});
+
+describe("buildDeterministicTemplateAnalysis", () => {
+  const germanListing = {
+    ...listing,
+    title: "3-Zimmer-Wohnung",
+    description: "Langfristige Miete in Berlin mit Balkon und Aufzug."
+  };
+
+  it("never calls the translation API when translate is disabled", async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+
+    const analysis = await buildDeterministicTemplateAnalysis(germanListing, "fingerprint-1", {
+      fitNote: "Deterministic reject: warm rent 1650 exceeds limit.",
+      translate: false,
+      fetchImpl
+    });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(analysis.translatedTitle).toBeNull();
+    expect(analysis.fitNote).toBe("Deterministic reject: warm rent 1650 exceeds limit.");
+    expect(analysis.inputFingerprint).toBe("fingerprint-1");
+    expect(analysis.model).toBe("deterministic");
+  });
+
+  it("reuses translations from a previous analysis without calling the translation API", async () => {
+    const fetchImpl = vi.fn() as unknown as typeof fetch;
+
+    const analysis = await buildDeterministicTemplateAnalysis(germanListing, "fingerprint-2", {
+      fitNote: "Meets all core search criteria: price, size, and rooms within target range.",
+      previousAnalysis: {
+        sourceLanguage: "German",
+        translatedTitle: "3-room apartment",
+        translatedDescription: "Long-term rental in Berlin with balcony and elevator.",
+        summary: "old summary",
+        fitNote: "old note",
+        model: "deterministic",
+        translationModel: "mymemory",
+        promptVersion: "classification-v2",
+        inputFingerprint: "old-fingerprint",
+        updatedAt: new Date().toISOString()
+      },
+      fetchImpl
+    });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(analysis.translatedTitle).toBe("3-room apartment");
+    expect(analysis.translationModel).toBe("mymemory");
+    expect(analysis.inputFingerprint).toBe("fingerprint-2");
   });
 });

@@ -29,7 +29,7 @@ import {
   analysisFlags,
   appSettingsPatchSchema,
   appSettingsSchema,
-  buildEnglishAnalystFingerprint,
+  buildAnalysisInputFingerprint,
   defaultAppSettings,
   eligibilityStates,
   getBerlinDistrictCentroid,
@@ -382,7 +382,7 @@ function deriveLlmAnalysisStatus(
   const llmLastErrorKind = parseLlmErrorKind(row.llmLastErrorKind);
 
   if (settings && llmAnalysis) {
-    const analystFingerprint = buildEnglishAnalystFingerprint(listing, settings);
+    const analystFingerprint = buildAnalysisInputFingerprint(listing, settings);
 
     if (llmAnalysis.inputFingerprint === analystFingerprint) {
       return "ready";

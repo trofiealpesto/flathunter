@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { PGlite } from "@electric-sql/pglite";
-import { canonicalizeListingUrl } from "@flathunter/shared";
+import { buildAnalysisInputFingerprint, canonicalizeListingUrl } from "@flathunter/shared";
 import { drizzle } from "drizzle-orm/pglite";
 import { describe, expect, it } from "vitest";
 
@@ -515,6 +515,81 @@ describe("repositories", { timeout: 20_000 }, () => {
 
     expect(updated?.enabled).toBe(false);
     expect(updated?.scrapeIntervalMinutes).toBe(45);
+  });
+
+  it("derives ready from the canonical analysis fingerprint and stays ready when score changes", async () => {
+    const db = await createTestDb();
+
+    const listing = await upsertListing(db, {
+      portal: "IMMOWELT",
+      portalListingId: "ready-1",
+      url: "https://www.immowelt.de/expose/ready-1",
+      canonicalUrl: "https://www.immowelt.de/expose/ready-1",
+      title: "Bright apartment",
+      description: "Long-term rental in Mitte.",
+      addressLine: null,
+      city: "Berlin",
+      district: "Mitte",
+      neighborhood: null,
+      latitude: null,
+      longitude: null,
+      rentCold: 1200,
+      rentWarm: 1400,
+      sizeSqm: 60,
+      rooms: 2,
+      floor: null,
+      availableFrom: null,
+      isFurnished: false,
+      hasBalcony: false,
+      hasElevator: false,
+      rawPayload: null
+    });
+
+    const settings = await getSettings(db);
+    const fingerprint = buildAnalysisInputFingerprint(listing, settings);
+    const analysis = {
+      sourceLanguage: "German",
+      translatedTitle: "Bright apartment",
+      translatedDescription: "Long-term rental in Mitte.",
+      summary: "2-room apartment in Mitte.",
+      fitNote: "Meets all core search criteria.",
+      model: "deterministic",
+      translationModel: null,
+      promptVersion: "classification-v3",
+      inputFingerprint: fingerprint,
+      updatedAt: new Date().toISOString()
+    };
+
+    await updateListingLlmState(db, listing.id, {
+      llmAnalysis: analysis,
+      llmLastErrorKind: null,
+      llmLastErrorAt: null
+    });
+
+    let [serialized] = await listListings(db, {});
+    expect(serialized?.llmAnalysisStatus).toBe("ready");
+
+    // Score is time-varying (freshness bonus) and must not flip a ready analysis to stale.
+    await updateListingEvaluation(db, listing.id, {
+      score: 5,
+      eligibilityState: "MATCH",
+      eligibilityReason: "still ready",
+      analysisFlags: [],
+      semanticFlags: [],
+      semanticModel: null
+    });
+
+    [serialized] = await listListings(db, {});
+    expect(serialized?.llmAnalysisStatus).toBe("ready");
+
+    await updateListingLlmState(db, listing.id, {
+      llmAnalysis: { ...analysis, inputFingerprint: "outdated-fingerprint" },
+      llmLastErrorKind: null,
+      llmLastErrorAt: null
+    });
+
+    [serialized] = await listListings(db, {});
+    expect(serialized?.llmAnalysisStatus).toBe("stale");
   });
 
   it("treats analyst timeout without cached output as missing so the UI can retry cleanly", async () => {

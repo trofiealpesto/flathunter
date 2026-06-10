@@ -885,10 +885,14 @@ export function getLlmErrorKind(error: unknown): LlmErrorKind {
   return "transport_error";
 }
 
+// Cache key for the semantic classifier. Deliberately excludes the deterministic
+// score/reason: the freshness bonus makes them time-varying, which would invalidate
+// the cache as listings age. The live score still feeds the LLM prompt — it just
+// doesn't participate in cache identity.
 export function buildSemanticClassificationFingerprint(
   listing: LlmListingInput,
   settings: AppSettings,
-  context: ListingEligibilityContext
+  analysisFlags: AnalysisFlag[]
 ) {
   return createHash("sha256")
     .update(
@@ -902,9 +906,7 @@ export function buildSemanticClassificationFingerprint(
         rooms: listing.rooms,
         sizeSqm: listing.sizeSqm,
         availableFrom: listing.availableFrom,
-        deterministicScore: context.deterministicScore,
-        deterministicReason: context.deterministicReason,
-        analysisFlags: context.analysisFlags,
+        analysisFlags,
         searchDistricts: settings.search.districts,
         preferredDistricts: settings.scoring.preferredDistricts,
         maxWarmRent: settings.scoring.maxWarmRent,
@@ -922,7 +924,29 @@ export function buildSemanticClassificationFingerprint(
     .digest("hex");
 }
 
-export function buildEnglishAnalystFingerprint(listing: LlmListingInput, settings: AppSettings) {
+// Canonical fingerprint stored in llmAnalysis.inputFingerprint and compared by
+// deriveLlmAnalysisStatus to decide ready/stale. Every code path that persists an
+// analysis must stamp this exact key. Only listing content and the settings that
+// shape the analysis belong here — nothing time-varying (score, freshness) and no
+// model config (swapping models shouldn't mark still-valid analyses stale).
+export function buildAnalysisInputFingerprint(
+  listing: Pick<
+    LlmListingInput,
+    | "title"
+    | "description"
+    | "district"
+    | "addressLine"
+    | "rentWarm"
+    | "rentCold"
+    | "rooms"
+    | "sizeSqm"
+    | "availableFrom"
+    | "isFurnished"
+    | "hasBalcony"
+    | "hasElevator"
+  >,
+  settings: AppSettings
+) {
   return createHash("sha256")
     .update(
       JSON.stringify({
@@ -935,32 +959,48 @@ export function buildEnglishAnalystFingerprint(listing: LlmListingInput, setting
         rooms: listing.rooms,
         sizeSqm: listing.sizeSqm,
         availableFrom: listing.availableFrom,
-        score: listing.score,
-        analysisFlags: listing.analysisFlags,
-        semanticFlags: listing.semanticFlags,
+        isFurnished: listing.isFurnished,
+        hasBalcony: listing.hasBalcony,
+        hasElevator: listing.hasElevator,
+        searchDistricts: settings.search.districts,
+        preferredDistricts: settings.scoring.preferredDistricts,
+        maxWarmRent: settings.scoring.maxWarmRent,
+        minimumSizeSqm: settings.scoring.minimumSizeSqm,
+        minimumRooms: settings.scoring.minimumRooms,
         semanticRules: settings.semanticRules,
-        llmProvider: settings.runtime.llmProvider,
-        analystModel: settings.runtime.llmAnalystModel,
-        promptVersion: llmAnalysisPromptVersion
+        promptVersion: semanticClassificationPromptVersion
       })
     )
     .digest("hex");
 }
 
-export async function buildDeterministicMatchAnalysis(
+export async function buildDeterministicTemplateAnalysis(
   listing: Pick<LlmListingInput, "title" | "description" | "district" | "rentWarm" | "sizeSqm" | "rooms" | "availableFrom">,
   inputFingerprint: string,
-  deps: { fetchImpl?: typeof fetch }
+  options: {
+    fitNote: string;
+    /** Skip MyMemory translation (e.g. REJECT listings — not worth the quota). Default true. */
+    translate?: boolean;
+    /** Reuse translations from a prior analysis instead of calling MyMemory again. */
+    previousAnalysis?: LlmAnalysis | null;
+    fetchImpl?: typeof fetch;
+  }
 ): Promise<LlmAnalysis> {
   const isEnglish = listingTextLooksEnglish(listing);
   let translatedTitle: string | null = null;
   let translatedDescription: string | null = null;
   let translationModel: string | null = null;
 
-  if (!isEnglish) {
+  const previous = options.previousAnalysis;
+
+  if (!isEnglish && previous && (previous.translatedTitle || previous.translatedDescription)) {
+    translatedTitle = previous.translatedTitle;
+    translatedDescription = previous.translatedDescription;
+    translationModel = previous.translationModel;
+  } else if (!isEnglish && options.translate !== false) {
     const [title, description] = await Promise.all([
-      listing.title?.trim() ? translateWithMyMemory(listing.title, { fetchImpl: deps.fetchImpl }) : Promise.resolve(null),
-      listing.description?.trim() ? translateWithMyMemory(listing.description, { fetchImpl: deps.fetchImpl }) : Promise.resolve(null)
+      listing.title?.trim() ? translateWithMyMemory(listing.title, { fetchImpl: options.fetchImpl }) : Promise.resolve(null),
+      listing.description?.trim() ? translateWithMyMemory(listing.description, { fetchImpl: options.fetchImpl }) : Promise.resolve(null)
     ]);
 
     if (title || description) {
@@ -987,7 +1027,7 @@ export async function buildDeterministicMatchAnalysis(
     translatedTitle,
     translatedDescription,
     summary,
-    fitNote: "Meets all core search criteria: price, size, and rooms within target range.",
+    fitNote: options.fitNote,
     model: "deterministic",
     translationModel,
     promptVersion: semanticClassificationPromptVersion,
@@ -1002,7 +1042,8 @@ export async function classifyListingEligibility(
   context: ListingEligibilityContext,
   deps: ListingEligibilityDeps
 ): Promise<EligibilityClassificationResult> {
-  const inputFingerprint = buildSemanticClassificationFingerprint(listing, settings, context);
+  const inputFingerprint = buildSemanticClassificationFingerprint(listing, settings, context.analysisFlags);
+  const analysisFingerprint = buildAnalysisInputFingerprint(listing, settings);
   const timeoutMs = deps.timeoutMs ?? DEFAULT_ANALYST_TIMEOUT_MS;
   const retryTimeoutMs = deps.retryTimeoutMs ?? Math.round(timeoutMs * 1.4);
   const fallbackModel = getConfiguredClassifierFallbackModel(settings, deps);
@@ -1073,7 +1114,7 @@ export async function classifyListingEligibility(
       if (fallback.result && fallbackModel) {
         return {
           ...toClassification(fallback.result),
-          llmAnalysis: buildLlmAnalysisFromEvaluation(fallback.result, fallbackModel, inputFingerprint, translationInfo),
+          llmAnalysis: buildLlmAnalysisFromEvaluation(fallback.result, fallbackModel, analysisFingerprint, translationInfo),
           inputFingerprint,
           model: fallbackModel,
           usedFallback: false,
@@ -1089,7 +1130,7 @@ export async function classifyListingEligibility(
 
       return {
         ...result,
-        llmAnalysis: buildLlmAnalysisFromEvaluation(full, model, inputFingerprint, translationInfo),
+        llmAnalysis: buildLlmAnalysisFromEvaluation(full, model, analysisFingerprint, translationInfo),
         inputFingerprint,
         model,
         usedFallback: false,
@@ -1105,7 +1146,7 @@ export async function classifyListingEligibility(
 
     return {
       ...result,
-      llmAnalysis: buildLlmAnalysisFromEvaluation(full, model, inputFingerprint, translationInfo),
+      llmAnalysis: buildLlmAnalysisFromEvaluation(full, model, analysisFingerprint, translationInfo),
       inputFingerprint,
       model,
       usedFallback: false,
@@ -1128,7 +1169,7 @@ export async function classifyListingEligibility(
       if (fallback.result && fallbackModel) {
         return {
           ...toClassification(fallback.result),
-          llmAnalysis: buildLlmAnalysisFromEvaluation(fallback.result, fallbackModel, inputFingerprint, translationInfo),
+          llmAnalysis: buildLlmAnalysisFromEvaluation(fallback.result, fallbackModel, analysisFingerprint, translationInfo),
           inputFingerprint,
           model: fallbackModel,
           usedFallback: false,
@@ -1205,7 +1246,7 @@ export async function generateListingEnglishAnalyst(
   settings: AppSettings,
   deps: EnglishAnalystDeps
 ): Promise<EnglishAnalystGenerationResult> {
-  const inputFingerprint = buildEnglishAnalystFingerprint(listing, settings);
+  const inputFingerprint = buildAnalysisInputFingerprint(listing, settings);
   const analysis = await callGeminiJson({
     apiKey: deps.apiKey,
     baseUrl: deps.baseUrl,
