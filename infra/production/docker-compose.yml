@@ -43,8 +43,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    expose:
-      - "4000"
+    ports:
+      - "127.0.0.1:${API_PORT:-3101}:4000"
     restart: unless-stopped
 
   worker:

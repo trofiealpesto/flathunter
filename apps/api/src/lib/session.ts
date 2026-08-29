@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -84,6 +84,16 @@ export function clearSession(reply: FastifyReply) {
 
 export function readSession(request: FastifyRequest, env: ApiEnv): Session | null {
   return parseSessionCookieValue(request.cookies[SESSION_COOKIE], env.SESSION_SECRET);
+}
+
+function isInternalTokenValid(value: string | string[] | undefined, expected: string | undefined) {
+  if (!expected || typeof value !== "string") {
+    return false;
+  }
+
+  const actualDigest = createHash("sha256").update(value).digest();
+  const expectedDigest = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(actualDigest, expectedDigest);
 }
 
 export function createOauthState(secret: string) {
@@ -196,6 +206,15 @@ export function consumeOauthState(request: FastifyRequest, reply: FastifyReply, 
 }
 
 export function requireSession(request: FastifyRequest, reply: FastifyReply, env: ApiEnv): Session | null {
+  if (isInternalTokenValid(request.headers["x-lifehub-token"], env.FLATHUNTER_INTERNAL_TOKEN)) {
+    return {
+      login: "lifehub",
+      name: "LifeHub",
+      avatarUrl: null,
+      expiresAt: new Date(Date.now() + 1000 * 60).toISOString()
+    };
+  }
+
   const session = readSession(request, env);
 
   if (!session) {

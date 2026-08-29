@@ -1,6 +1,22 @@
 # Deployment
 
-## Recommended topology
+## LifeHub topology
+
+Nel deployment homelab corrente la UI vive in LifeHub. Questa repository
+costruisce ed esegue soltanto Postgres, migration, API e worker tramite
+`lifehub-flathunter.service`; `apps/web` resta come riferimento di parità e non
+fa parte del runtime.
+
+L’API è pubblicata da Compose su `127.0.0.1:3101` e riceve richieste dal BFF
+LifeHub con `X-LifeHub-Token`. Imposta lo stesso
+`FLATHUNTER_INTERNAL_TOKEN` (almeno 32 caratteri) nell’env di Flathunter e in
+quello di LifeHub. Le sessioni GitHub restano compatibili per ora, ma non sono
+usate dalla UI integrata.
+
+La topologia standalone documentata sotto resta disponibile per sviluppo o
+rollout separati.
+
+## Standalone topology
 
 The default production path is a generic self-hosted Docker Compose stack. It is not tied to Oracle, Vercel, Netlify, or another deploy platform.
 

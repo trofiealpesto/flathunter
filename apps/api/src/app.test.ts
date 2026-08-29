@@ -130,6 +130,7 @@ describe("api app", () => {
         NOMINATIM_BASE_URL: "https://nominatim.openstreetmap.org",
         PORTAL_SECRETS_KEY: "portal-secrets-key-for-tests",
         SESSION_SECRET: "1234567890123456",
+        FLATHUNTER_INTERNAL_TOKEN: "lifehub-internal-token-for-tests-123",
         ADMIN_GITHUB_LOGIN: "giuva",
         GITHUB_CLIENT_ID: "github-client",
         GITHUB_CLIENT_SECRET: "github-secret",
@@ -184,6 +185,30 @@ describe("api app", () => {
     const response = await app.inject({
       method: "GET",
       url: "/api/listings"
+    });
+
+    expect(response.statusCode).toBe(401);
+  });
+
+  it("accepts the internal LifeHub credential on protected routes", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/listings",
+      headers: {
+        "x-lifehub-token": "lifehub-internal-token-for-tests-123"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+  });
+
+  it("rejects an invalid internal LifeHub credential", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/listings",
+      headers: {
+        "x-lifehub-token": "wrong-lifehub-internal-token-value"
+      }
     });
 
     expect(response.statusCode).toBe(401);

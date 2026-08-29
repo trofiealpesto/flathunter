@@ -30,6 +30,10 @@ const envSchema = z.object({
   SCRAPER_PROXY_URL: optionalUrlSchema,
   PORTAL_SECRETS_KEY: z.string().min(16),
   SESSION_SECRET: z.string().min(16),
+  FLATHUNTER_INTERNAL_TOKEN: z.preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().min(32).optional()
+  ),
   ADMIN_GITHUB_LOGIN: z.string().trim().min(1),
   GITHUB_CLIENT_ID: z.string().trim().min(1),
   GITHUB_CLIENT_SECRET: z.string().trim().min(1),
