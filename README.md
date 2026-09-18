@@ -120,10 +120,16 @@ make prod-deploy PROD_SCHEME=https PROD_HOST=flathunter.example.com PROD_PORT=44
 
 - `IMMOWELT`: primary scraping source, enabled by default, credentials optional.
 - `WG_GESUCHT`: secondary scraping source, credentials and session refresh required before enablement.
+- `HOWOGE`: direct public feed, no account required, enabled by default every five minutes. Collects individual apartments, preserves WBS notices and warm rent, and excludes aggregate construction-project teasers.
+- `GEWOBAG`: direct apartment search, no account required, enabled by default every five minutes. Follows every results page, preserves WBS notices and distinguishes warm from cold rent. A failed later page leaves the run partial and retains already collected listings.
 - `IMMOSCOUT24`: retired from active source management. Historical listings stay queryable.
 - `KLEINANZEIGEN`: retired from active source management for now. Historical listings stay queryable.
 
 The current product direction is scraping-first for consumer discovery. Official portal APIs are not required for normal use and are not the main integration path.
+
+The municipal adapters use the configured search city and accept search parameters in the official search URL. Run `pnpm db:migrate` before starting updated API/worker processes (`0016_municipal_portals.sql` adds the two portal enum values). Existing source settings are preserved. LifeHub and this runtime are separate deployments; both must be updated for the new filters and portals.
+
+Listing queries support `minRooms`, `seenWithinDays` (1–365, based on the last successful sighting), and `includeDuplicates=true`. `sort=newest` orders by first discovery, not by the latest scrape. `maxRentWarm` includes only known warm rents; an unknown total is never substituted with cold rent. A recent sighting does not guarantee that an apartment is still available.
 
 ### Source setup in the UI
 

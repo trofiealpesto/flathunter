@@ -3,7 +3,7 @@ import { z } from "zod";
 import { listingGeoSourceSchema } from "./geo";
 import { llmAnalysisSchema, llmAnalysisStatusSchema } from "./llm-analysis";
 
-export const portals = ["IMMOWELT", "IMMOSCOUT24", "KLEINANZEIGEN", "WG_GESUCHT", "FLATSFORFRIENDZ", "INBERLINWOHNEN"] as const;
+export const portals = ["IMMOWELT", "IMMOSCOUT24", "KLEINANZEIGEN", "WG_GESUCHT", "FLATSFORFRIENDZ", "INBERLINWOHNEN", "HOWOGE", "GEWOBAG"] as const;
 export const userStatuses = ["NEW", "REVIEWED", "CONTACTED", "REJECTED", "BLACKLISTED"] as const;
 export const eligibilityStates = ["MATCH", "UNSURE", "REJECT"] as const;
 export const contactChannels = ["PORTAL_FORM", "EMAIL", "PHONE", "OTHER"] as const;
@@ -39,10 +39,12 @@ export const listingFilterSchema = z.object({
   maxRentWarm: z.coerce.number().optional(),
   minSizeSqm: z.coerce.number().optional(),
   minScore: z.coerce.number().optional(),
+  minRooms: z.coerce.number().finite().nonnegative().optional(),
+  seenWithinDays: z.coerce.number().int().min(1).max(365).optional(),
   district: z.string().trim().min(1).optional(),
   query: z.string().trim().min(1).optional(),
   sort: listingSortSchema.optional(),
-  includeDuplicates: z.coerce.boolean().optional()
+  includeDuplicates: z.union([z.boolean(), z.enum(["true", "false"]).transform((value) => value === "true")]).optional()
 });
 
 export const listingBaseSchema = z.object({

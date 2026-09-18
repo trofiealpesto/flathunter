@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { buildAnalysisInputFingerprint, canonicalizeListingUrl } from "@flathunter/shared";
 import { drizzle } from "drizzle-orm/pglite";
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import type { Database } from "./client";
@@ -60,6 +61,29 @@ async function createTestDb() {
 }
 
 describe("repositories", { timeout: 20_000 }, () => {
+
+  it("filters known warm budgets, rooms and recent sightings and sorts by discovery time", async () => {
+    const db = await createTestDb();
+    const base = {
+      portal: "HOWOGE" as const, title: "Apartment", description: null, addressLine: null,
+      city: "Berlin", district: "Mitte", neighborhood: null, latitude: null, longitude: null,
+      rentCold: 700, rentWarm: 950, sizeSqm: 60, rooms: 2, floor: null, availableFrom: null,
+      isFurnished: false, hasBalcony: false, hasElevator: false, rawPayload: null
+    };
+    const old = await upsertListing(db, { ...base, portalListingId: "old", url: "https://www.howoge.de/old", canonicalUrl: "https://www.howoge.de/old" });
+    const recent = await upsertListing(db, { ...base, portal: "GEWOBAG", portalListingId: "recent", rooms: 3,
+      url: "https://www.gewobag.de/recent", canonicalUrl: "https://www.gewobag.de/recent" });
+    const coldOnly = await upsertListing(db, { ...base, portalListingId: "cold", rentWarm: null,
+      url: "https://www.howoge.de/cold", canonicalUrl: "https://www.howoge.de/cold" });
+    await db.update(schema.listings).set({ firstSeenAt: new Date(Date.now() - 30 * 86400000), lastSeenAt: new Date() }).where(eq(schema.listings.id, old.id));
+    await db.update(schema.listings).set({ firstSeenAt: new Date(Date.now() - 86400000), lastSeenAt: new Date(Date.now() - 3600000) }).where(eq(schema.listings.id, recent.id));
+    await db.update(schema.listings).set({ firstSeenAt: new Date(Date.now() - 10 * 86400000), lastSeenAt: new Date(Date.now() - 10 * 86400000) }).where(eq(schema.listings.id, coldOnly.id));
+    expect((await listListings(db, { maxRentWarm: 1000 })).map((listing) => listing.id).sort()).toEqual([old.id, recent.id].sort());
+    expect((await listListings(db, { minRooms: 2.5 })).map((listing) => listing.id)).toEqual([recent.id]);
+    expect((await listListings(db, { seenWithinDays: 3, sort: "newest" })).map((listing) => listing.id)).toEqual([recent.id, old.id]);
+    expect((await listListings(db, { sort: "newest" })).map((listing) => listing.id)).toEqual([recent.id, coldOnly.id, old.id]);
+  });
+
   it("upserts a listing by portal listing id", async () => {
     const db = await createTestDb();
 

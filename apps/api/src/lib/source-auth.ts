@@ -192,6 +192,30 @@ const sourceAuthConfigs: Record<Portal, SourceAuthConfig> = {
     passwordSelectors: defaultPasswordSelectors,
     nextSelectors: defaultNextSelectors,
     submitSelectors: defaultSubmitSelectors
+  },
+  HOWOGE: {
+    optionalCredentials: true,
+    loginUrl: "https://www.howoge.de/immobiliensuche/wohnungssuche.html",
+    validationUrl: "https://www.howoge.de/immobiliensuche/wohnungssuche.html",
+    blockedIndicators: [],
+    loginIndicators: [],
+    loginUrlIndicators: [],
+    loginIdentifierSelectors: defaultLoginIdentifierSelectors,
+    passwordSelectors: defaultPasswordSelectors,
+    nextSelectors: defaultNextSelectors,
+    submitSelectors: defaultSubmitSelectors
+  },
+  GEWOBAG: {
+    optionalCredentials: true,
+    loginUrl: "https://www.gewobag.de/fuer-mietinteressentinnen/mietangebote/?objekttyp%5B0%5D=wohnung",
+    validationUrl: "https://www.gewobag.de/fuer-mietinteressentinnen/mietangebote/?objekttyp%5B0%5D=wohnung",
+    blockedIndicators: [],
+    loginIndicators: [],
+    loginUrlIndicators: [],
+    loginIdentifierSelectors: defaultLoginIdentifierSelectors,
+    passwordSelectors: defaultPasswordSelectors,
+    nextSelectors: defaultNextSelectors,
+    submitSelectors: defaultSubmitSelectors
   }
 };
 

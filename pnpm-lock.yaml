@@ -38,9 +38,15 @@ importers:
       '@playwright/test':
         specifier: ^1.58.2
         version: 1.58.2
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@electric-sql/pglite@0.4.2)(@types/pg@8.20.0)(pg@8.20.0)
       fastify:
         specifier: ^4.29.1
         version: 4.29.1
+      pg:
+        specifier: ^8.16.3
+        version: 8.20.0
       zod:
         specifier: ^4.1.12
         version: 4.3.6
@@ -48,9 +54,6 @@ importers:
       '@electric-sql/pglite':
         specifier: ^0.4.2
         version: 0.4.2
-      drizzle-orm:
-        specifier: ^0.45.2
-        version: 0.45.2(@electric-sql/pglite@0.4.2)(@types/pg@8.20.0)(pg@8.20.0)
 
   apps/web:
     dependencies:
@@ -139,6 +142,12 @@ importers:
       cheerio:
         specifier: ^1.1.2
         version: 1.2.0
+      drizzle-orm:
+        specifier: ^0.45.2
+        version: 0.45.2(@electric-sql/pglite@0.4.2)(@types/pg@8.20.0)(pg@8.20.0)
+      pg:
+        specifier: ^8.16.3
+        version: 8.20.0
       zod:
         specifier: ^4.1.12
         version: 4.3.6
