@@ -10,7 +10,7 @@ import {
   upsertPortalSessionState,
   type Database
 } from "@flathunter/db";
-import { activeSourcePortals, isActiveSourcePortal, retiredSourcePortals, type Portal } from "@flathunter/shared";
+import { municipalSourceUrls, activeSourcePortals, isActiveSourcePortal, retiredSourcePortals, type Portal } from "@flathunter/shared";
 
 import type { ApiEnv } from "../config";
 import type { SourceAuthRunnerInput, SourceAuthRunnerResult, SourceSessionState } from "./source-auth";
@@ -30,6 +30,12 @@ export async function ensureDefaultPortalSources(db: Database) {
     searchParams: Record<string, unknown>;
     scrapeIntervalMinutes?: number;
   }> = [
+    ...(["HOWOGE", "GEWOBAG"] as const).map((portal) => ({
+      portal,
+      searchUrl: municipalSourceUrls[portal],
+      searchParams: { city: settings.search.city },
+      scrapeIntervalMinutes: 5
+    })),
     {
       portal: "IMMOWELT",
       searchUrl: settings.search.immoweltSearchUrl,

@@ -4,6 +4,7 @@ import { retiredSourcePortals, type AppSettings, type Portal } from "@flathunter
 import type { WorkerEnv } from "../config";
 import { flatsforfriendzAdapter } from "./adapters/flatsforfriendz";
 import { immoweltAdapter } from "./adapters/immowelt";
+import { howogeAdapter, gewobagAdapter } from "./adapters/municipal";
 import { inberlinwohnenAdapter } from "./adapters/inberlinwohnen";
 import { kleinanzeigenAdapter } from "./adapters/kleinanzeigen";
 import { wgGesuchtAdapter } from "./adapters/wg-gesucht";
@@ -14,7 +15,9 @@ export const sourceAdapters = [
   immoweltAdapter,
   wgGesuchtAdapter,
   kleinanzeigenAdapter,
-  inberlinwohnenAdapter
+  inberlinwohnenAdapter,
+  howogeAdapter,
+  gewobagAdapter
 ] as const;
 
 const adaptersByPortal = new Map<Portal, SourceAdapter>(sourceAdapters.map((adapter) => [adapter.portal, adapter]));

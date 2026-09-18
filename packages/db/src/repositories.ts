@@ -26,6 +26,7 @@ import type {
   ContactAttemptCreate
 } from "@flathunter/shared";
 import {
+  municipalSourceCapabilities,
   analysisFlags,
   appSettingsPatchSchema,
   appSettingsSchema,
@@ -77,6 +78,7 @@ const distanceBandDefinitions = [
 ] as const;
 
 const portalCapabilities: Record<Portal, PortalSourceCapabilities> = {
+  ...municipalSourceCapabilities,
   IMMOWELT: {
     supportsLogin: true,
     supportsCaptchaSolver: true,
@@ -704,11 +706,19 @@ export async function listListings(db: Database, filters: ListingFilters) {
   }
 
   if (filters.maxRentWarm != null) {
-    conditions.push(sql`COALESCE(${listings.rentWarm}, ${listings.rentCold}) <= ${filters.maxRentWarm}`);
+    conditions.push(sql`${listings.rentWarm} <= ${filters.maxRentWarm}`);
   }
 
   if (filters.minSizeSqm != null) {
     conditions.push(sql`${listings.sizeSqm} >= ${filters.minSizeSqm}`);
+  }
+
+  if (filters.minRooms != null) {
+    conditions.push(sql`${listings.rooms} >= ${filters.minRooms}`);
+  }
+
+  if (filters.seenWithinDays != null) {
+    conditions.push(sql`${listings.lastSeenAt} >= NOW() - ${filters.seenWithinDays} * INTERVAL '1 day'`);
   }
 
   if (filters.minScore != null) {
@@ -738,7 +748,7 @@ export async function listListings(db: Database, filters: ListingFilters) {
             sql`COALESCE(semantic_fit_score, score) DESC NULLS LAST`,
             desc(listings.lastSeenAt)
           ]
-        : [desc(listings.lastSeenAt)])
+        : [desc(listings.firstSeenAt), desc(listings.id)])
     );
 
   const settings = await getSettings(db);

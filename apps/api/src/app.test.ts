@@ -748,7 +748,7 @@ describe("api app", () => {
     });
 
     expect(listResponse.statusCode).toBe(200);
-    expect(listResponse.json()).toHaveLength(5);
+    expect(listResponse.json()).toHaveLength(7);
     expect(listResponse.json()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -769,6 +769,8 @@ describe("api app", () => {
         expect.objectContaining({
           portal: "KLEINANZEIGEN"
         }),
+        expect.objectContaining({ portal: "HOWOGE", enabled: true, scrapeIntervalMinutes: 5, capabilities: expect.objectContaining({ supportsLogin: false, sourceKind: "public_api" }) }),
+        expect.objectContaining({ portal: "GEWOBAG", enabled: true, scrapeIntervalMinutes: 5, capabilities: expect.objectContaining({ supportsLogin: false, sourceKind: "scraping" }) }),
         expect.objectContaining({
           portal: "INBERLINWOHNEN",
           capabilities: expect.objectContaining({
