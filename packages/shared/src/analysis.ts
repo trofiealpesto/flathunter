@@ -13,6 +13,9 @@ export type DeterministicEvaluation = {
   shouldRunSemanticClassifier: boolean;
 };
 
+// Invalidates cached verdicts/templates that were derived from the old text rules.
+export const deterministicAnalysisVersion = "rental-rules-v2";
+
 const FLAG_REASON_LABELS: Record<AnalysisFlag, string> = {
   wbs_required: "WBS required",
   swap_only: "swap-only listing",
@@ -28,6 +31,7 @@ const FLAG_REASON_LABELS: Record<AnalysisFlag, string> = {
 function normalizeText(value: string | null | undefined) {
   return value
     ?.normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\w\s.-]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -38,31 +42,50 @@ function includesAny(text: string, patterns: RegExp[]) {
   return patterns.some((pattern) => pattern.test(text));
 }
 
-export function extractAnalysisFlags(listing: AnalyzableListing): AnalysisFlag[] {
-  const combinedText = normalizeText(
-    [
-      listing.title,
-      listing.description,
-      listing.availableFrom
-    ]
-      .filter(Boolean)
-      .join(" ")
-  );
+const NEGATED_CLAUSE = /\b(?:kein\w*|nicht|ohne|no|not|never|without|neither|nor|non|senza)\b|\b(?:isn|aren|doesn|don|won|can)\s+t\b/;
+const UNCERTAIN_CLAUSE = /\b(?:if|unless|maybe|optional|possibly|wenn|falls|eventuell|vielleicht|fruher|ehemals|bisher|previously|formerly|nebenan|nachbar\w*|neighbou?r\w*|next door|ignore|ignoriere|instructions?|anweisungen|classify|output)\b|[?"“”«»]/i;
+const BLOCKING_FLAGS: AnalysisFlag[] = ["wbs_required", "swap_only", "temporary_sublet", "room_only"];
+
+function analyzeListingText(listing: AnalyzableListing) {
+  const text = [listing.title, listing.description, listing.availableFrom].filter(Boolean).join("\n");
+  const combinedText = normalizeText(text);
+  // Keep fields and clauses separate: negating WBS must not hide a swap elsewhere.
+  const clauses = text.split(/[.;!\n,]+|\b(?:aber|but|jedoch|however|sondern)\b/i);
+  let requiresSemanticReview = false;
+  let contradictory = false;
+  function hasAffirmativeSignal(patterns: RegExp[], mentions = patterns) {
+    let affirmed = false;
+    let negated = false;
+    let uncertain = false;
+    for (const clause of clauses) {
+      const normalized = normalizeText(clause);
+      if (!includesAny(normalized, mentions)) continue;
+      if (UNCERTAIN_CLAUSE.test(clause) || UNCERTAIN_CLAUSE.test(normalized)) uncertain = true;
+      else if (NEGATED_CLAUSE.test(normalized)) negated = true;
+      else if (includesAny(normalized, patterns)) affirmed = true;
+      else uncertain = true;
+    }
+    contradictory ||= affirmed && negated;
+    requiresSemanticReview ||= uncertain || negated;
+    // Negation scope inside a clause is deliberately conservative; the LLM resolves it.
+    return affirmed && !negated && !uncertain;
+  }
 
   const flags = new Set<AnalysisFlag>();
 
   if (
-    includesAny(combinedText, [
-      /\bwbs\b/,
-      /wohnberechtigungsschein/,
-      /housing permit/
-    ])
+    hasAffirmativeSignal([
+      /\b(?:wbs|wohnberechtigungsschein|housing permit)\s+(?:(?:ist|is)\s+)?(?:erforderlich|notwendig|pflicht|mandatory|required|needed)\b/,
+      /\b(?:requires?|need|benotig\w*)\s+(?:(?:a|an|einen|ein)\s+)?(?:wbs|wohnberechtigungsschein|housing permit)\b/,
+      /\bnur\s+mit\s+(?:gultigem\s+)?wbs\b/,
+      /\bwbs[- ](?:pflichtig\w*|wohnung)\b/
+    ], [/\bwbs\b/, /\bwohnberechtigungsschein\b/, /\bhousing permit\b/])
   ) {
     flags.add("wbs_required");
   }
 
   if (
-    includesAny(combinedText, [
+    hasAffirmativeSignal([
       /\bwohnungstausch\b/,
       /\btauschwohnung\b/,
       /\bswap only\b/,
@@ -73,15 +96,14 @@ export function extractAnalysisFlags(listing: AnalyzableListing): AnalysisFlag[]
   }
 
   if (
-    includesAny(combinedText, [
+    hasAffirmativeSignal([
       /\bzwischenmiete\b/,
-      /\buntermiete\b/,
-      /\bbefristet\b/,
+      /\bbefristet(?:e[rmns]?)?\b/,
       /\bauf zeit\b/,
       /\btemporary sublet\b/,
       /\bshort[- ]term\b/,
-      /\bsublet\b/,
       /\blimited term\b/,
+      /\bfixed[- ]term\b/,
       /\bonly for \d+/,
       /\bfor \d+ months?\b/,
       /\bfur \d+ monate?\b/
@@ -91,12 +113,11 @@ export function extractAnalysisFlags(listing: AnalyzableListing): AnalysisFlag[]
   }
 
   if (
-    includesAny(combinedText, [
+    hasAffirmativeSignal([
       /\bwg[- ]zimmer\b/,
-      /\bshared flat\b/,
-      /\broom in shared\b/,
-      /\bprivatzimmer\b/,
-      /\broommate\b/
+      /\broom in (?:a )?shared\b/,
+      /\b(?:one|single|only a|only one) (?:bed)?room\b.{0,60}\bshared (?:flat|kitchen|bathroom)\b/,
+      /\bprivatzimmer\b/
     ])
   ) {
     flags.add("room_only");
@@ -115,7 +136,7 @@ export function extractAnalysisFlags(listing: AnalyzableListing): AnalysisFlag[]
   }
 
   if (
-    includesAny(combinedText, [
+    hasAffirmativeSignal([
       /\blangfristig\b/,
       /\bunbefrist\w*\b/,
       /\bauf unbestimmte zeit\b/,
@@ -138,7 +159,16 @@ export function extractAnalysisFlags(listing: AnalyzableListing): AnalysisFlag[]
     flags.add("furnished_text");
   }
 
-  return [...flags];
+  contradictory ||= flags.has("temporary_sublet") && flags.has("long_term");
+  if (contradictory) {
+    // Conflicting conditions/corrections need interpretation before any text-only rejection.
+    for (const flag of [...BLOCKING_FLAGS, "long_term"] as AnalysisFlag[]) flags.delete(flag);
+  }
+  return { analysisFlags: [...flags], requiresSemanticReview: requiresSemanticReview || contradictory };
+}
+
+export function extractAnalysisFlags(listing: AnalyzableListing): AnalysisFlag[] {
+  return analyzeListingText(listing).analysisFlags;
 }
 
 function describeFlags(flags: AnalysisFlag[]) {
@@ -177,11 +207,11 @@ export function evaluateListingDeterministically(
   settings: AppSettings,
   scoringContext: ScoringContext = {}
 ): DeterministicEvaluation {
-  const analysisFlags = extractAnalysisFlags(listing);
+  const { analysisFlags, requiresSemanticReview } = analyzeListingText(listing);
   const score = computeDeterministicScore(listing, settings, analysisFlags, scoringContext);
 
   const hardRejectFlag = analysisFlags.find((flag) =>
-    ["wbs_required", "swap_only", "temporary_sublet", "room_only"].includes(flag)
+    BLOCKING_FLAGS.includes(flag)
   );
 
   if (hardRejectFlag) {
@@ -206,9 +236,11 @@ export function evaluateListingDeterministically(
     };
   }
 
-  // Deterministic MATCH: all key numeric criteria present and clearly within bounds.
-  // LLM called only when data is missing or borderline (genuinely ambiguous cases).
+  // Numeric facts cannot establish that arbitrary natural-language requirements are met.
+  const hasSemanticRequirements = settings.semanticRules.mustMatch.length > 0
+    || settings.semanticRules.avoid.length > 0 || settings.semanticRules.notes.trim().length > 0;
   if (
+    !hasSemanticRequirements && !requiresSemanticReview &&
     listing.rentWarm != null &&
     listing.rentWarm <= settings.scoring.maxWarmRent &&
     listing.sizeSqm != null &&
@@ -229,7 +261,7 @@ export function evaluateListingDeterministically(
     analysisFlags,
     score,
     eligibilityState: "UNSURE",
-    reason: `Pending LLM evaluation: score ${score}; ${describeFlags(analysisFlags)}.`,
+    reason: `Pending LLM evaluation: ${hasSemanticRequirements || requiresSemanticReview ? "text conditions require semantic review; " : ""}score ${score}; ${describeFlags(analysisFlags)}.`,
     shouldRunSemanticClassifier: true
   };
 }

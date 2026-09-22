@@ -1,0 +1,3819 @@
+{
+  "date": "2026-09-22",
+  "ruleVersion": "rental-rules-v2",
+  "provenance": "Regression comparison on the already-inspected authored synthetic corpus, not a new blind holdout or production accuracy measurement. Suitable listings retained as UNSURE are not MATCH predictions. No LLM calls.",
+  "inputsUnchanged": true,
+  "numericVerdictsUnchanged": true,
+  "artifacts": {
+    "before": {
+      "path": ".decision-benchmark/corpus.export.json",
+      "sha256": "f00ca67252c5c1f9608499776f5fca82ec0d5f86cebefcbba09f60f7fc72aa54",
+      "corpusHash": "f09e951e4c8aeefa13111e46994e457d2fdabb27a76dc962b0bab492825138c5",
+      "baselineSourceSha256": "0d50bc145cbf1765e3658922226fee9fce066a44ef4383e4f3643c8458f699f5"
+    },
+    "after": {
+      "path": ".decision-benchmark/rules-v2-final-corpus.export.json",
+      "sha256": "73fb57a9fb0672d34571098af31d9cc024674a512bcc6d03cde18b9329dad72b",
+      "corpusHash": "fa0136966e741e6978af3320606fbdd116f40c4cf7e06c08051ae2c9f3b3027c",
+      "baselineSourceSha256": "46ec627dae761c74a7c1998d3f5e9dd94fbe86dac3e30da397b1fc7742923fdb"
+    }
+  },
+  "metrics": {
+    "dev": {
+      "before": {
+        "cases": 50,
+        "families": 25,
+        "suitable": 16,
+        "falseRejectsOfSuitable": 6,
+        "suitableRetention": 0.625,
+        "rejectPrecision": 0.6521739130434783,
+        "coverage": 0.96,
+        "unsureRate": 0.04,
+        "errors": 0,
+        "timedCases": 50,
+        "latencyP50Ms": 0.009542000000010376,
+        "latencyP95Ms": 0.14033400000005258,
+        "confusion": {
+          "MATCH": {
+            "MATCH": 10,
+            "UNSURE": 0,
+            "REJECT": 6
+          },
+          "UNSURE": {
+            "MATCH": 6,
+            "UNSURE": 2,
+            "REJECT": 2
+          },
+          "REJECT": {
+            "MATCH": 9,
+            "UNSURE": 0,
+            "REJECT": 15
+          }
+        }
+      },
+      "after": {
+        "cases": 50,
+        "families": 25,
+        "suitable": 16,
+        "falseRejectsOfSuitable": 0,
+        "suitableRetention": 1.0,
+        "rejectPrecision": 1.0,
+        "coverage": 0.28,
+        "unsureRate": 0.72,
+        "errors": 0,
+        "timedCases": 50,
+        "latencyP50Ms": 0.02575000000001637,
+        "latencyP95Ms": 0.26012500000001637,
+        "confusion": {
+          "MATCH": {
+            "MATCH": 0,
+            "UNSURE": 16,
+            "REJECT": 0
+          },
+          "UNSURE": {
+            "MATCH": 0,
+            "UNSURE": 10,
+            "REJECT": 0
+          },
+          "REJECT": {
+            "MATCH": 0,
+            "UNSURE": 10,
+            "REJECT": 14
+          }
+        }
+      },
+      "semanticReviewCandidates": {
+        "before": 2,
+        "after": 36
+      }
+    },
+    "eval": {
+      "before": {
+        "cases": 100,
+        "families": 50,
+        "suitable": 36,
+        "falseRejectsOfSuitable": 11,
+        "suitableRetention": 0.6944444444444444,
+        "rejectPrecision": 0.5416666666666666,
+        "coverage": 0.92,
+        "unsureRate": 0.08,
+        "errors": 0,
+        "timedCases": 100,
+        "latencyP50Ms": 0.008666000000062013,
+        "latencyP95Ms": 0.012249999999994543,
+        "confusion": {
+          "MATCH": {
+            "MATCH": 25,
+            "UNSURE": 0,
+            "REJECT": 11
+          },
+          "UNSURE": {
+            "MATCH": 12,
+            "UNSURE": 8,
+            "REJECT": 0
+          },
+          "REJECT": {
+            "MATCH": 31,
+            "UNSURE": 0,
+            "REJECT": 13
+          }
+        }
+      },
+      "after": {
+        "cases": 100,
+        "families": 50,
+        "suitable": 36,
+        "falseRejectsOfSuitable": 0,
+        "suitableRetention": 1.0,
+        "rejectPrecision": 1.0,
+        "coverage": 0.09,
+        "unsureRate": 0.91,
+        "errors": 0,
+        "timedCases": 100,
+        "latencyP50Ms": 0.024790999999936503,
+        "latencyP95Ms": 0.07920800000010786,
+        "confusion": {
+          "MATCH": {
+            "MATCH": 0,
+            "UNSURE": 36,
+            "REJECT": 0
+          },
+          "UNSURE": {
+            "MATCH": 0,
+            "UNSURE": 20,
+            "REJECT": 0
+          },
+          "REJECT": {
+            "MATCH": 0,
+            "UNSURE": 35,
+            "REJECT": 9
+          }
+        }
+      },
+      "semanticReviewCandidates": {
+        "before": 8,
+        "after": 91
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "plain-permanent-1",
+      "family": "plain-permanent",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.8603749999999764
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 2.4838340000000017
+      }
+    },
+    {
+      "id": "plain-permanent-2",
+      "family": "plain-permanent",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.07350000000008095
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.05441700000005767
+      }
+    },
+    {
+      "id": "negation-wbs-1",
+      "family": "negation-wbs",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.042041000000040185
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.3181250000000091
+      }
+    },
+    {
+      "id": "negation-wbs-2",
+      "family": "negation-wbs",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.019249999999942702
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.04733299999998053
+      }
+    },
+    {
+      "id": "negation-swap-1",
+      "family": "negation-swap",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "swap_only",
+          "temporary_sublet",
+          "long_term"
+        ],
+        "score": 30,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: swap-only listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.14033400000005258
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.20154200000001765
+      }
+    },
+    {
+      "id": "negation-swap-2",
+      "family": "negation-swap",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "swap_only",
+          "temporary_sublet",
+          "long_term"
+        ],
+        "score": 30,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: swap-only listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.02554099999997561
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.05550000000005184
+      }
+    },
+    {
+      "id": "negation-wg-1",
+      "family": "negation-wg",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "room_only"
+        ],
+        "score": 57,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: shared-room listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.011541999999963082
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.03520800000001145
+      }
+    },
+    {
+      "id": "negation-wg-2",
+      "family": "negation-wg",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "room_only"
+        ],
+        "score": 57,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: shared-room listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.012375000000020009
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.03054199999996854
+      }
+    },
+    {
+      "id": "italian-balcony-1",
+      "family": "italian-balcony",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term",
+          "balcony_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language, balcony mentioned.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.31541699999991124
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term",
+          "balcony_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language, balcony mentioned.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.1370839999999589
+      }
+    },
+    {
+      "id": "italian-balcony-2",
+      "family": "italian-balcony",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term",
+          "balcony_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language, balcony mentioned.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.01741699999990942
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term",
+          "balcony_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language, balcony mentioned.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.027958000000012362
+      }
+    },
+    {
+      "id": "pets-permitted-1",
+      "family": "pets-permitted",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.014541000000008353
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.03091699999993125
+      }
+    },
+    {
+      "id": "pets-permitted-2",
+      "family": "pets-permitted",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.016083999999978005
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.028166999999939435
+      }
+    },
+    {
+      "id": "mixed-permanent-1",
+      "family": "mixed-permanent",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.011542000000076769
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.027708000000075117
+      }
+    },
+    {
+      "id": "mixed-permanent-2",
+      "family": "mixed-permanent",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.022375000000010914
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.043000000000006366
+      }
+    },
+    {
+      "id": "neutral-furniture-1",
+      "family": "neutral-furniture",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009666000000038366
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.026833000000010543
+      }
+    },
+    {
+      "id": "neutral-furniture-2",
+      "family": "neutral-furniture",
+      "split": "dev",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "furnished_text"
+        ],
+        "score": 78,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 78); furnished language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009541999999896689
+      },
+      "after": {
+        "analysisFlags": [
+          "furnished_text"
+        ],
+        "score": 78,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 78; furnished language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02533400000004349
+      }
+    },
+    {
+      "id": "wbs-mandatory-1",
+      "family": "wbs-mandatory",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009875000000079126
+      },
+      "after": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.26012500000001637
+      }
+    },
+    {
+      "id": "wbs-mandatory-2",
+      "family": "wbs-mandatory",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009707999999932326
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.19966699999997672
+      }
+    },
+    {
+      "id": "temporary-two-months-1",
+      "family": "temporary-two-months",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.011792000000014013
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.031041999999956715
+      }
+    },
+    {
+      "id": "temporary-two-months-2",
+      "family": "temporary-two-months",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008874999999989086
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024084000000016204
+      }
+    },
+    {
+      "id": "swap-mandatory-1",
+      "family": "swap-mandatory",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "swap_only"
+        ],
+        "score": 42,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: swap-only listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007500000000050022
+      },
+      "after": {
+        "analysisFlags": [
+          "swap_only"
+        ],
+        "score": 42,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: swap-only listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.02291699999989305
+      }
+    },
+    {
+      "id": "swap-mandatory-2",
+      "family": "swap-mandatory",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008083000000056018
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02299999999991087
+      }
+    },
+    {
+      "id": "room-shared-1",
+      "family": "room-shared",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "room_only"
+        ],
+        "score": 57,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: shared-room listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008166999999957625
+      },
+      "after": {
+        "analysisFlags": [
+          "room_only"
+        ],
+        "score": 57,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: shared-room listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.02541699999994762
+      }
+    },
+    {
+      "id": "room-shared-2",
+      "family": "room-shared",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "room_only"
+        ],
+        "score": 57,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: shared-room listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007708999999977095
+      },
+      "after": {
+        "analysisFlags": [
+          "room_only"
+        ],
+        "score": 57,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: shared-room listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.03937499999994998
+      }
+    },
+    {
+      "id": "registration-forbidden-1",
+      "family": "registration-forbidden",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008499999999912689
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02612499999997908
+      }
+    },
+    {
+      "id": "registration-forbidden-2",
+      "family": "registration-forbidden",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008915999999999258
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.025457999999957792
+      }
+    },
+    {
+      "id": "price-too-high-1",
+      "family": "price-too-high",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 58,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: warm rent 2600 exceeds limit 1800 by >20%.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.01274999999998272
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 58,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: warm rent 2600 exceeds limit 1800 by >20%.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.03437500000006821
+      }
+    },
+    {
+      "id": "price-too-high-2",
+      "family": "price-too-high",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 58,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: warm rent 2600 exceeds limit 1800 by >20%.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.012375000000020009
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 58,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: warm rent 2600 exceeds limit 1800 by >20%.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.022458000000028733
+      }
+    },
+    {
+      "id": "area-too-small-1",
+      "family": "area-too-small",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 68,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: size 25 sqm is <75% of minimum 50 sqm.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008625000000051841
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 68,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: size 25 sqm is <75% of minimum 50 sqm.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.09470800000008239
+      }
+    },
+    {
+      "id": "area-too-small-2",
+      "family": "area-too-small",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 68,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: size 25 sqm is <75% of minimum 50 sqm.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007541999999943982
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 68,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: size 25 sqm is <75% of minimum 50 sqm.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.023957999999993262
+      }
+    },
+    {
+      "id": "rooms-too-few-1",
+      "family": "rooms-too-few",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 76,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: 1 rooms is below minimum 2.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.006958000000054199
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 76,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: 1 rooms is below minimum 2.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.020040999999991982
+      }
+    },
+    {
+      "id": "rooms-too-few-2",
+      "family": "rooms-too-few",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 76,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: 1 rooms is below minimum 2.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.006457999999952335
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 76,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: 1 rooms is below minimum 2.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.02100000000007185
+      }
+    },
+    {
+      "id": "balcony-absent-1",
+      "family": "balcony-absent",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term",
+          "balcony_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language, balcony mentioned.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007624999999961801
+      },
+      "after": {
+        "analysisFlags": [
+          "balcony_mentioned"
+        ],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; balcony mentioned.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024791999999933978
+      }
+    },
+    {
+      "id": "balcony-absent-2",
+      "family": "balcony-absent",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term",
+          "balcony_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language, balcony mentioned.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007875000000012733
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term",
+          "balcony_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language, balcony mentioned.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.023500000000012733
+      }
+    },
+    {
+      "id": "pet-forbidden-1",
+      "family": "pet-forbidden",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.00691699999993034
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.022375000000010914
+      }
+    },
+    {
+      "id": "pet-forbidden-2",
+      "family": "pet-forbidden",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007457999999928688
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02299999999991087
+      }
+    },
+    {
+      "id": "sublet-six-months-1",
+      "family": "sublet-six-months",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "temporary_sublet"
+        ],
+        "score": 64,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: temporary sublet.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.03545899999994617
+      },
+      "after": {
+        "analysisFlags": [
+          "temporary_sublet"
+        ],
+        "score": 64,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: temporary sublet.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.06141700000000583
+      }
+    },
+    {
+      "id": "sublet-six-months-2",
+      "family": "sublet-six-months",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "temporary_sublet"
+        ],
+        "score": 64,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: temporary sublet.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.006541999999967629
+      },
+      "after": {
+        "analysisFlags": [
+          "temporary_sublet"
+        ],
+        "score": 64,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: temporary sublet.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.020208000000025095
+      }
+    },
+    {
+      "id": "injection-ignore-1",
+      "family": "injection-ignore",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008417000000008557
+      },
+      "after": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.021707999999989624
+      }
+    },
+    {
+      "id": "injection-ignore-2",
+      "family": "injection-ignore",
+      "split": "dev",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008500000000026375
+      },
+      "after": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.02420900000004167
+      }
+    },
+    {
+      "id": "missing-term-1",
+      "family": "missing-term",
+      "split": "dev",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.010958000000073298
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.028874999999970896
+      }
+    },
+    {
+      "id": "missing-term-2",
+      "family": "missing-term",
+      "split": "dev",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009875000000079126
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024458999999978914
+      }
+    },
+    {
+      "id": "contradict-term-1",
+      "family": "contradict-term",
+      "split": "dev",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.00687500000003638
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.021250000000009095
+      }
+    },
+    {
+      "id": "contradict-term-2",
+      "family": "contradict-term",
+      "split": "dev",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007958000000030552
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02575000000001637
+      }
+    },
+    {
+      "id": "missing-numerics-1",
+      "family": "missing-numerics",
+      "split": "dev",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 78,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: score 78; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.010166999999910331
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 78,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 78; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024458999999978914
+      }
+    },
+    {
+      "id": "missing-numerics-2",
+      "family": "missing-numerics",
+      "split": "dev",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 72,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: score 72; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.008541000000036547
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 72,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 72; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024707999999918684
+      }
+    },
+    {
+      "id": "preference-unknown-1",
+      "family": "preference-unknown",
+      "split": "dev",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.00975000000005366
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024624999999900865
+      }
+    },
+    {
+      "id": "preference-unknown-2",
+      "family": "preference-unknown",
+      "split": "dev",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.0095410000000129
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.023749999999949978
+      }
+    },
+    {
+      "id": "contradict-permit-1",
+      "family": "contradict-permit",
+      "split": "dev",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009542000000010376
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.04520899999999983
+      }
+    },
+    {
+      "id": "contradict-permit-2",
+      "family": "contradict-permit",
+      "split": "dev",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008207999999967797
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.023458999999888874
+      }
+    },
+    {
+      "id": "lease-indefinite-owner-1",
+      "family": "lease-indefinite-owner",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.0105829999999969
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.029625000000010004
+      }
+    },
+    {
+      "id": "lease-indefinite-owner-2",
+      "family": "lease-indefinite-owner",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008541999999920336
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.020583000000101492
+      }
+    },
+    {
+      "id": "wbs-not-needed-1",
+      "family": "wbs-not-needed",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009500000000002728
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02995900000007623
+      }
+    },
+    {
+      "id": "wbs-not-needed-2",
+      "family": "wbs-not-needed",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009125000000040018
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.025708000000008724
+      }
+    },
+    {
+      "id": "wbs-optional-1",
+      "family": "wbs-optional",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007790999999997439
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.0206670000000031
+      }
+    },
+    {
+      "id": "wbs-optional-2",
+      "family": "wbs-optional",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008459000000016204
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.026250000000004547
+      }
+    },
+    {
+      "id": "wbs-neighbor-1",
+      "family": "wbs-neighbor",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009250000000065484
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.03387499999996635
+      }
+    },
+    {
+      "id": "wbs-neighbor-2",
+      "family": "wbs-neighbor",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009583000000020547
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.028125000000045475
+      }
+    },
+    {
+      "id": "swap-denied-1",
+      "family": "swap-denied",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009417000000098597
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.028125000000045475
+      }
+    },
+    {
+      "id": "swap-denied-2",
+      "family": "swap-denied",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.011166000000002896
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02758300000004965
+      }
+    },
+    {
+      "id": "formerly-sublet-1",
+      "family": "formerly-sublet",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "temporary_sublet",
+          "long_term"
+        ],
+        "score": 70,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: temporary sublet.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008332999999993262
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.03150000000005093
+      }
+    },
+    {
+      "id": "formerly-sublet-2",
+      "family": "formerly-sublet",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "temporary_sublet"
+        ],
+        "score": 64,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: temporary sublet.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.040208000000006905
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.025333000000046013
+      }
+    },
+    {
+      "id": "temporary-denied-1",
+      "family": "temporary-denied",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.010499999999979082
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.025790999999912856
+      }
+    },
+    {
+      "id": "temporary-denied-2",
+      "family": "temporary-denied",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008624999999938154
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02491700000007313
+      }
+    },
+    {
+      "id": "wg-neighbor-1",
+      "family": "wg-neighbor",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009709000000043488
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024707999999918684
+      }
+    },
+    {
+      "id": "wg-neighbor-2",
+      "family": "wg-neighbor",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "room_only"
+        ],
+        "score": 57,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: shared-room listing.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.010375000000067303
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.028083000000037828
+      }
+    },
+    {
+      "id": "bedrooms-whole-1",
+      "family": "bedrooms-whole",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009875000000079126
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.029624999999896318
+      }
+    },
+    {
+      "id": "bedrooms-whole-2",
+      "family": "bedrooms-whole",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.00895900000000438
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02433399999995345
+      }
+    },
+    {
+      "id": "furnished-accepted-1",
+      "family": "furnished-accepted",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.0095410000000129
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.030041999999980362
+      }
+    },
+    {
+      "id": "furnished-accepted-2",
+      "family": "furnished-accepted",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008666999999945801
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.028332999999975073
+      }
+    },
+    {
+      "id": "balcony-confirmed-1",
+      "family": "balcony-confirmed",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008542000000034022
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02679200000000037
+      }
+    },
+    {
+      "id": "balcony-confirmed-2",
+      "family": "balcony-confirmed",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "balcony_mentioned"
+        ],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); balcony mentioned.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008417000000008557
+      },
+      "after": {
+        "analysisFlags": [
+          "balcony_mentioned"
+        ],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; balcony mentioned.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.021875000000022737
+      }
+    },
+    {
+      "id": "lift-confirmed-1",
+      "family": "lift-confirmed",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "elevator_mentioned"
+        ],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); elevator mentioned.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.010041999999998552
+      },
+      "after": {
+        "analysisFlags": [
+          "elevator_mentioned"
+        ],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; elevator mentioned.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02695800000003601
+      }
+    },
+    {
+      "id": "lift-confirmed-2",
+      "family": "lift-confirmed",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term",
+          "elevator_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language, elevator mentioned.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009833999999955267
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term",
+          "elevator_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language, elevator mentioned.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.025707999999895037
+      }
+    },
+    {
+      "id": "cat-approved-1",
+      "family": "cat-approved",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.00975000000005366
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.026707999999985077
+      }
+    },
+    {
+      "id": "cat-approved-2",
+      "family": "cat-approved",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008874999999989086
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024458999999978914
+      }
+    },
+    {
+      "id": "it-longterm-1",
+      "family": "it-longterm",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.010708000000022366
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.03170799999998053
+      }
+    },
+    {
+      "id": "it-longterm-2",
+      "family": "it-longterm",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.0105829999999969
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.022249999999985448
+      }
+    },
+    {
+      "id": "language-mixed-positive-1",
+      "family": "language-mixed-positive",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009957999999983258
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02604200000007495
+      }
+    },
+    {
+      "id": "language-mixed-positive-2",
+      "family": "language-mixed-positive",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.006541999999967629
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.020582999999987805
+      }
+    },
+    {
+      "id": "injection-hostile-1",
+      "family": "injection-hostile",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008750000000077307
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.029916000000071108
+      }
+    },
+    {
+      "id": "injection-hostile-2",
+      "family": "injection-hostile",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007666999999969448
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02070800000001327
+      }
+    },
+    {
+      "id": "numeric-at-limits-1",
+      "family": "numeric-at-limits",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 66,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 66); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008541999999920336
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 66,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 66; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.04487499999993361
+      }
+    },
+    {
+      "id": "numeric-at-limits-2",
+      "family": "numeric-at-limits",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 66,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 66); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009374999999977263
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 66,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 66; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02841599999999289
+      }
+    },
+    {
+      "id": "tail-wbs-negation-1",
+      "family": "tail-wbs-negation",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.1654590000000553
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 1.699707999999987
+      }
+    },
+    {
+      "id": "tail-wbs-negation-2",
+      "family": "tail-wbs-negation",
+      "split": "eval",
+      "expected": "MATCH",
+      "before": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.2080829999999878
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 1.492666999999983
+      }
+    },
+    {
+      "id": "permit-certificate-1",
+      "family": "permit-certificate",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "wbs_required",
+          "long_term"
+        ],
+        "score": 53,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.010041999999998552
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.26737500000001546
+      }
+    },
+    {
+      "id": "permit-certificate-2",
+      "family": "permit-certificate",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008000000000038199
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.026458000000047832
+      }
+    },
+    {
+      "id": "permit-income-1",
+      "family": "permit-income",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008040999999934684
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02791700000000219
+      }
+    },
+    {
+      "id": "permit-income-2",
+      "family": "permit-income",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007417000000032203
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024790999999936503
+      }
+    },
+    {
+      "id": "permit-after-negation-1",
+      "family": "permit-after-negation",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007791999999994914
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.022334000000000742
+      }
+    },
+    {
+      "id": "permit-after-negation-2",
+      "family": "permit-after-negation",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.012000000000057298
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.021583999999961634
+      }
+    },
+    {
+      "id": "temporary-weeks-1",
+      "family": "temporary-weeks",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.00908300000003237
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.026624999999967258
+      }
+    },
+    {
+      "id": "temporary-weeks-2",
+      "family": "temporary-weeks",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009084000000029846
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.020709000000010747
+      }
+    },
+    {
+      "id": "temporary-until-date-1",
+      "family": "temporary-until-date",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008000000000038199
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02945800000009058
+      }
+    },
+    {
+      "id": "temporary-until-date-2",
+      "family": "temporary-until-date",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.006750000000010914
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02137500000003456
+      }
+    },
+    {
+      "id": "temporary-nine-months-1",
+      "family": "temporary-nine-months",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008084000000053493
+      },
+      "after": {
+        "analysisFlags": [
+          "temporary_sublet"
+        ],
+        "score": 64,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: temporary sublet.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.028875000000084583
+      }
+    },
+    {
+      "id": "temporary-nine-months-2",
+      "family": "temporary-nine-months",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.006916000000046552
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.019708000000036918
+      }
+    },
+    {
+      "id": "temporary-one-year-1",
+      "family": "temporary-one-year",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "temporary_sublet"
+        ],
+        "score": 64,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: temporary sublet.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.010375000000067303
+      },
+      "after": {
+        "analysisFlags": [
+          "temporary_sublet"
+        ],
+        "score": 64,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: temporary sublet.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.07920800000010786
+      }
+    },
+    {
+      "id": "temporary-one-year-2",
+      "family": "temporary-one-year",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009791000000063832
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02158299999996416
+      }
+    },
+    {
+      "id": "temporary-holiday-1",
+      "family": "temporary-holiday",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007708999999977095
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.019042000000013104
+      }
+    },
+    {
+      "id": "temporary-holiday-2",
+      "family": "temporary-holiday",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.0072920000000067375
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.01845900000000711
+      }
+    },
+    {
+      "id": "swap-platform-1",
+      "family": "swap-platform",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008207999999967797
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02866699999992761
+      }
+    },
+    {
+      "id": "swap-platform-2",
+      "family": "swap-platform",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007749999999987267
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02279199999998127
+      }
+    },
+    {
+      "id": "swap-conditional-1",
+      "family": "swap-conditional",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007749999999987267
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02341599999999744
+      }
+    },
+    {
+      "id": "swap-conditional-2",
+      "family": "swap-conditional",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007458999999926164
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.022832999999991443
+      }
+    },
+    {
+      "id": "room-kitchen-shared-1",
+      "family": "room-kitchen-shared",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009332999999969616
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02437499999996362
+      }
+    },
+    {
+      "id": "room-kitchen-shared-2",
+      "family": "room-kitchen-shared",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008666000000062013
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02133400000002439
+      }
+    },
+    {
+      "id": "room-student-1",
+      "family": "room-student",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009584000000018023
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024583000000006905
+      }
+    },
+    {
+      "id": "room-student-2",
+      "family": "room-student",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "furnished_text"
+        ],
+        "score": 78,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 78); furnished language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007499999999936335
+      },
+      "after": {
+        "analysisFlags": [
+          "furnished_text"
+        ],
+        "score": 78,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 78; furnished language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.018875000000093678
+      }
+    },
+    {
+      "id": "room-landlord-1",
+      "family": "room-landlord",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007540999999946507
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.025541999999973086
+      }
+    },
+    {
+      "id": "room-landlord-2",
+      "family": "room-landlord",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.0072920000000067375
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.022000000000048203
+      }
+    },
+    {
+      "id": "registration-refusal-1",
+      "family": "registration-refusal",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008791999999971267
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.026625000000080945
+      }
+    },
+    {
+      "id": "registration-refusal-2",
+      "family": "registration-refusal",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.00941699999998491
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02245899999991252
+      }
+    },
+    {
+      "id": "registration-tourist-1",
+      "family": "registration-tourist",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008958000000006905
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.021250000000009095
+      }
+    },
+    {
+      "id": "registration-tourist-2",
+      "family": "registration-tourist",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.00829199999998309
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02320899999995163
+      }
+    },
+    {
+      "id": "price-extreme-1",
+      "family": "price-extreme",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 43,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: warm rent 3200 exceeds limit 1800 by >20%.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.00804100000004837
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 43,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: warm rent 3200 exceeds limit 1800 by >20%.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.025958000000059656
+      }
+    },
+    {
+      "id": "price-extreme-2",
+      "family": "price-extreme",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 37,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: warm rent 3200 exceeds limit 1800 by >20%.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008916999999996733
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 37,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: warm rent 3200 exceeds limit 1800 by >20%.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.024125000000026375
+      }
+    },
+    {
+      "id": "size-extreme-1",
+      "family": "size-extreme",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 58,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: size 18 sqm is <75% of minimum 50 sqm.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.006917000000044027
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 58,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: size 18 sqm is <75% of minimum 50 sqm.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.019083000000023276
+      }
+    },
+    {
+      "id": "size-extreme-2",
+      "family": "size-extreme",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 64,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: size 18 sqm is <75% of minimum 50 sqm.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.006791000000021086
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 64,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: size 18 sqm is <75% of minimum 50 sqm.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.018416000000001986
+      }
+    },
+    {
+      "id": "rooms-extreme-1",
+      "family": "rooms-extreme",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 76,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: 1 rooms is below minimum 2.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007541000000060194
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 76,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: 1 rooms is below minimum 2.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.023750000000063665
+      }
+    },
+    {
+      "id": "rooms-extreme-2",
+      "family": "rooms-extreme",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 70,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: 1 rooms is below minimum 2.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008083000000056018
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 70,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: 1 rooms is below minimum 2.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.01950000000010732
+      }
+    },
+    {
+      "id": "lift-not-present-1",
+      "family": "lift-not-present",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term",
+          "elevator_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language, elevator mentioned.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008874999999989086
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term",
+          "elevator_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language, elevator mentioned.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.025916999999935797
+      }
+    },
+    {
+      "id": "lift-not-present-2",
+      "family": "lift-not-present",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term",
+          "elevator_mentioned"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language, elevator mentioned.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008290999999985615
+      },
+      "after": {
+        "analysisFlags": [
+          "elevator_mentioned"
+        ],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; elevator mentioned.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02137500000003456
+      }
+    },
+    {
+      "id": "dog-not-cat-1",
+      "family": "dog-not-cat",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007791999999994914
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.026749999999992724
+      }
+    },
+    {
+      "id": "dog-not-cat-2",
+      "family": "dog-not-cat",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007500000000050022
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.025209000000018023
+      }
+    },
+    {
+      "id": "tail-restriction-1",
+      "family": "tail-restriction",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.16375000000005002
+      },
+      "after": {
+        "analysisFlags": [
+          "wbs_required"
+        ],
+        "score": 47,
+        "eligibilityState": "REJECT",
+        "reason": "Deterministic reject: WBS required.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 1.377917000000025
+      }
+    },
+    {
+      "id": "tail-restriction-2",
+      "family": "tail-restriction",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.20354199999997036
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 1.3656670000000304
+      }
+    },
+    {
+      "id": "injection-json-1",
+      "family": "injection-json",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.012249999999994543
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.03345799999999599
+      }
+    },
+    {
+      "id": "injection-json-2",
+      "family": "injection-json",
+      "split": "eval",
+      "expected": "REJECT",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009916999999973086
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.025417000000061307
+      }
+    },
+    {
+      "id": "term-unstated-1",
+      "family": "term-unstated",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.01079200000003766
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.04975000000001728
+      }
+    },
+    {
+      "id": "term-unstated-2",
+      "family": "term-unstated",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009125000000040018
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.023125000000050022
+      }
+    },
+    {
+      "id": "metadata-rent-absent-1",
+      "family": "metadata-rent-absent",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 72,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: score 72; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.0071659999999837964
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 72,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 72; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.020250000000032742
+      }
+    },
+    {
+      "id": "metadata-rent-absent-2",
+      "family": "metadata-rent-absent",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 78,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: score 78; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.007666999999969448
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 78,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 78; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02425000000005184
+      }
+    },
+    {
+      "id": "metadata-size-absent-1",
+      "family": "metadata-size-absent",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 80,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: score 80; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.008541000000036547
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 80,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 80; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.027874999999994543
+      }
+    },
+    {
+      "id": "metadata-size-absent-2",
+      "family": "metadata-size-absent",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 74,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: score 74; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.009749999999939973
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 74,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 74; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024458999999978914
+      }
+    },
+    {
+      "id": "metadata-rooms-absent-1",
+      "family": "metadata-rooms-absent",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 78,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: score 78; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.010874999999941792
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 78,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 78; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.025457999999957792
+      }
+    },
+    {
+      "id": "metadata-rooms-absent-2",
+      "family": "metadata-rooms-absent",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 84,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: score 84; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.010374999999953616
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 84,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 84; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.0236250000000382
+      }
+    },
+    {
+      "id": "registration-unclear-1",
+      "family": "registration-unclear",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008290999999985615
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.027417000000014013
+      }
+    },
+    {
+      "id": "registration-unclear-2",
+      "family": "registration-unclear",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.010125000000016371
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.021166999999991276
+      }
+    },
+    {
+      "id": "contradict-tenancy-1",
+      "family": "contradict-tenancy",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008208000000081483
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.022916000000009262
+      }
+    },
+    {
+      "id": "contradict-tenancy-2",
+      "family": "contradict-tenancy",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007833000000005086
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02179200000000492
+      }
+    },
+    {
+      "id": "contradict-registration-1",
+      "family": "contradict-registration",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.0071659999999837964
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.0196250000000191
+      }
+    },
+    {
+      "id": "contradict-registration-2",
+      "family": "contradict-registration",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.0072499999999990905
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02445799999998144
+      }
+    },
+    {
+      "id": "balcony-unreported-1",
+      "family": "balcony-unreported",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008125000000063665
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.024167000000034022
+      }
+    },
+    {
+      "id": "balcony-unreported-2",
+      "family": "balcony-unreported",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 82); no strong text signals.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.008417000000008557
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 82,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 82; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.022707999999965978
+      }
+    },
+    {
+      "id": "conditional-permission-1",
+      "family": "conditional-permission",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.009457999999995081
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.027417000000014013
+      }
+    },
+    {
+      "id": "conditional-permission-2",
+      "family": "conditional-permission",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "MATCH",
+        "reason": "Deterministic match: all core criteria met (score 88); long-term language.",
+        "shouldRunSemanticClassifier": false,
+        "latencyMs": 0.007667000000083135
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 88,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 88; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.02104199999996581
+      }
+    },
+    {
+      "id": "numeric-borderline-1",
+      "family": "numeric-borderline",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 74,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: score 74; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.006332999999926869
+      },
+      "after": {
+        "analysisFlags": [
+          "long_term"
+        ],
+        "score": 74,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 74; long-term language.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.01783299999999599
+      }
+    },
+    {
+      "id": "numeric-borderline-2",
+      "family": "numeric-borderline",
+      "split": "eval",
+      "expected": "UNSURE",
+      "before": {
+        "analysisFlags": [],
+        "score": 68,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: score 68; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.006459000000063497
+      },
+      "after": {
+        "analysisFlags": [],
+        "score": 68,
+        "eligibilityState": "UNSURE",
+        "reason": "Pending LLM evaluation: text conditions require semantic review; score 68; no strong text signals.",
+        "shouldRunSemanticClassifier": true,
+        "latencyMs": 0.020458000000076026
+      }
+    }
+  ]
+}

@@ -162,6 +162,35 @@ describe("runWorkerOnce", () => {
     });
   });
 
+  it("keeps negated blockers pending when the semantic classifier is unavailable", async () => {
+    const actual = await vi.importActual<typeof import("@flathunter/shared")>("@flathunter/shared");
+    mocks.evaluateListingDeterministically.mockImplementationOnce(actual.evaluateListingDeterministically);
+    mocks.getSettings.mockResolvedValue({ ...actual.defaultAppSettings,
+      runtime: { ...actual.defaultAppSettings.runtime, enableSemanticClassifier: false }
+    });
+    mocks.listEnabledPortalSourcesDue.mockResolvedValue([]);
+    mocks.listListingsForEvaluation.mockResolvedValue([{
+      id: "negated-wbs", title: "Wohnung in Berlin",
+      description: "Kein WBS erforderlich. Ganze unbefristete Wohnung mit Anmeldung.",
+      district: "Mitte", rentWarm: 1400, rooms: 3, sizeSqm: 80,
+      eligibilityState: "REJECT", eligibilityReason: "Old keyword rejection",
+      semanticFlags: [], semanticInputFingerprint: null, llmAnalysis: null
+    }]);
+
+    const { runWorkerOnce } = await import("./index");
+    await runWorkerOnce({ envInput: {
+      NODE_ENV: "test", DATABASE_URL: "postgres://unused",
+      PORTAL_SECRETS_KEY: "portal-secrets-key-for-tests",
+      IMMOWELT_ENABLE_LIVE_BROWSER: "false"
+    } });
+
+    expect(mocks.classifyListingEligibility).not.toHaveBeenCalled();
+    expect(mocks.buildDeterministicTemplateAnalysis).not.toHaveBeenCalled();
+    expect(mocks.updateListingEvaluation).toHaveBeenCalledWith(db, "negated-wbs", expect.objectContaining({
+      eligibilityState: "UNSURE", analysisFlags: ["long_term"]
+    }));
+  });
+
   it("processes due sources independently and continues after a source failure", async () => {
     const adapterByPortal = {
       IMMOWELT: {

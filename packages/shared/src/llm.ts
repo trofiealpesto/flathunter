@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { deterministicAnalysisVersion } from "./analysis";
 
 import type { AnalysisFlag, EligibilityState, ListingSummary } from "./listings";
 import type { AppSettings, LlmProvider } from "./settings";
@@ -907,6 +908,7 @@ export function buildSemanticClassificationFingerprint(
         sizeSqm: listing.sizeSqm,
         availableFrom: listing.availableFrom,
         analysisFlags,
+        deterministicAnalysisVersion,
         searchDistricts: settings.search.districts,
         preferredDistricts: settings.scoring.preferredDistricts,
         maxWarmRent: settings.scoring.maxWarmRent,
@@ -927,7 +929,7 @@ export function buildSemanticClassificationFingerprint(
 // Canonical fingerprint stored in llmAnalysis.inputFingerprint and compared by
 // deriveLlmAnalysisStatus to decide ready/stale. Every code path that persists an
 // analysis must stamp this exact key. Only listing content and the settings that
-// shape the analysis belong here — nothing time-varying (score, freshness) and no
+// shape the analysis, plus the deterministic rules version, belong here — no score/freshness or
 // model config (swapping models shouldn't mark still-valid analyses stale).
 export function buildAnalysisInputFingerprint(
   listing: Pick<
@@ -960,6 +962,7 @@ export function buildAnalysisInputFingerprint(
         sizeSqm: listing.sizeSqm,
         availableFrom: listing.availableFrom,
         isFurnished: listing.isFurnished,
+        deterministicAnalysisVersion,
         hasBalcony: listing.hasBalcony,
         hasElevator: listing.hasElevator,
         searchDistricts: settings.search.districts,

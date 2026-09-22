@@ -9,6 +9,12 @@ Measured outcomes and limitations are in [RESULTS.md](RESULTS.md). The current
 GLiClass and Laya protocols failed the pilot criteria; installing the experiment does not
 enable any local classifier in the running worker.
 
+The [2026-09-22 rules correction](RULES-2026-09-22.md) is a separate regression
+comparison of the deterministic policy. The earlier model trials and exported
+corpus remain unchanged. For a fresh export, the numeric baseline explicitly
+disables semantic requirements; all numeric verdicts were checked against the
+original 150 cases. Never replace an old exported corpus under a frozen model policy.
+
 ## Corpus and interpretation
 
 `corpus.json` contains 75 authored synthetic families, each with two reviewed

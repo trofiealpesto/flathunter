@@ -56,7 +56,7 @@ const cases = families.flatMap((family, familyIndex) => family.texts.map((descri
   const numeric = evaluateListingDeterministically({
     title: "", description: null, district: listing.district,
     rentWarm: listing.rentWarm, rooms: listing.rooms, sizeSqm: listing.sizeSqm
-  }, settings);
+  }, { ...settings, semanticRules: { mustMatch: [], avoid: [], notes: "" } });
   return {
     id: `${family.id}-${variant + 1}`, family: family.id, split: family.split,
     expected: family.expected, rationale: family.rationale, tags: family.tags,

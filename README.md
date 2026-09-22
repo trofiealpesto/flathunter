@@ -101,6 +101,12 @@ make prod-deploy PROD_SCHEME=https PROD_HOST=flathunter.example.com PROD_PORT=44
 - `IMMOWELT_ENABLE_LIVE_BROWSER=true` enables the Playwright scraper.
 - `WORKER_DEV_INTERVAL_MS=300000` runs the local worker loop every 5 minutes.
 - `GEMINI_CLASSIFIER_MAX_PER_RUN=4` keeps primary semantic classification on a slow, quota-friendly queue.
+- Deterministic text rejections require affirmative, unambiguous restrictions. Negated,
+  historical or conflicting conditions go to semantic review. Numeric bounds alone
+  produce `MATCH` only when no semantic requirements are configured; otherwise the
+  existing classifier/cached verdict must resolve them. Pending listings stay `UNSURE`
+  when the classifier is disabled, unavailable or out of budget. This increases the
+  review queue without increasing its configured call budget.
 - `GEMINI_CLASSIFIER_FALLBACK_MAX_PER_RUN=1` limits automatic Flash escalations after Gemma returns high-value `UNSURE` results.
 - `GEMINI_CLASSIFIER_MIN_DELAY_MS=8000` spaces classifier requests inside a worker run.
 - `GEMINI_CLASSIFIER_RETRY_COOLDOWN_MS=1800000` avoids retrying recent Gemini throttling errors immediately.
