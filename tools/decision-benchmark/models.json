@@ -1,0 +1,26 @@
+{
+  "gliclass-mini": {
+    "model": "knowledgator/gliclass-multilang-mini",
+    "revision": "0bd888b6c3ef9fca5f0a9d407bddfbbc7623486b",
+    "backend": "gliclass", "dtype": "float32", "quantization": "none"
+  },
+  "gliclass-edge": {
+    "model": "knowledgator/gliclass-multilang-edge",
+    "revision": "d16c08ef70547514081952104e6fc3d190d9ee39",
+    "backend": "gliclass", "dtype": "float32", "quantization": "none"
+  },
+  "laya-multilingual": {
+    "model": "convaiinnovations/laya",
+    "revision": "1c5edc17a7acd8701df6fc341c0d179f1c62c982",
+    "subfolder": "multilingual",
+    "backend": "laya", "dtype": "float32", "quantization": "none",
+    "codeRevision": "573e5b62696ba441230cd6be71d593331b5d23af",
+    "questionBatchSize": 2
+  },
+  "semif-qwen": {
+    "model": "mlx-community/Qwen3.5-4B-4bit",
+    "revision": "0e7ffd5c629ef7719d4cbc04069232580bfa9d9c",
+    "backend": "semif", "dtype": "source", "quantization": "prequantized-mlx-affine-4bit-group64",
+    "codeRevision": "ca3ba65f142967030ecb453346e94d6f476a69df"
+  }
+}

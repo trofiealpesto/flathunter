@@ -11,3 +11,5 @@ test-results
 .vite
 .netlify
 .vercel
+.decision-benchmark/
+__pycache__/

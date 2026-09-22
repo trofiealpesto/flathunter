@@ -11,3 +11,5 @@ coverage
 playwright-report
 test-results
 .vite
+.decision-benchmark
+**/__pycache__

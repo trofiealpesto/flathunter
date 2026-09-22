@@ -16,7 +16,9 @@
     "typecheck": "pnpm -r run typecheck",
     "db:migrate": "pnpm --filter @flathunter/db run migrate",
     "worker:run": "pnpm --filter @flathunter/worker run start",
-    "worker:benchmark:llm": "pnpm --filter @flathunter/worker run benchmark:llm"
+    "worker:benchmark:llm": "pnpm --filter @flathunter/worker run benchmark:llm",
+    "worker:benchmark:decisions:export": "pnpm --filter @flathunter/worker exec tsx src/benchmarks/decisions.ts",
+    "test:decisions": "python3 -m unittest discover -s tools/decision-benchmark -p 'test_*.py'"
   },
   "devDependencies": {
     "@types/node": "^24.8.1",
