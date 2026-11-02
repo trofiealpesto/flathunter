@@ -107,6 +107,12 @@ make prod-deploy PROD_SCHEME=https PROD_HOST=flathunter.example.com PROD_PORT=44
   existing classifier/cached verdict must resolve them. Pending listings stay `UNSURE`
   when the classifier is disabled, unavailable or out of budget. This increases the
   review queue without increasing its configured call budget.
+- `POST /api/listings/:id/external-verdict` lets an outside reviewer (the LifeHub MCP used by
+  a Rakazo agent) settle an `UNSURE` listing that is waiting for semantic review. The verdict is
+  stored as `semantic_model = external:<agent>` with the current semantic fingerprint, so the
+  worker keeps it until the listing text or the search rules change. Deterministic verdicts
+  and already decided listings answer `409`. Worker writes skip rows classified after the run
+  loaded them.
 - `GEMINI_CLASSIFIER_FALLBACK_MAX_PER_RUN=1` limits automatic Flash escalations after Gemma returns high-value `UNSURE` results.
 - `GEMINI_CLASSIFIER_MIN_DELAY_MS=8000` spaces classifier requests inside a worker run.
 - `GEMINI_CLASSIFIER_RETRY_COOLDOWN_MS=1800000` avoids retrying recent Gemini throttling errors immediately.

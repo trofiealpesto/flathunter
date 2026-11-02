@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { buildAnalysisInputFingerprint, canonicalizeListingUrl } from "@flathunter/shared";
 import { drizzle } from "drizzle-orm/pglite";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 
 import type { Database } from "./client";
@@ -25,6 +25,7 @@ import {
   listDedupCandidates,
   listContactAttemptsByListing,
   listListings,
+  listListingsForEvaluation,
   listPortalSources,
   markPortalRun,
   patchSettings,
@@ -918,5 +919,70 @@ describe("repositories", { timeout: 20_000 }, () => {
     expect(deleted).toBe(1);
     expect(afterCleanup).toHaveLength(1);
     expect(afterCleanup[0]?.portalListingId).toBe("live-001");
+  });
+  it("skips batch evaluation writes when the listing was classified after loading", async () => {
+    const db = await createTestDb();
+    const listing = await upsertListing(db, {
+      portal: "IMMOWELT",
+      portalListingId: "race-1",
+      url: "https://www.immowelt.de/expose/race-1",
+      canonicalUrl: "https://www.immowelt.de/expose/race-1",
+      title: "Apartment with conditions",
+      description: "Long-term rental, Anmeldung possible.",
+      addressLine: null,
+      city: "Berlin",
+      district: "Mitte",
+      neighborhood: null,
+      latitude: null,
+      longitude: null,
+      rentCold: 700,
+      rentWarm: 850,
+      sizeSqm: 45,
+      rooms: 2,
+      floor: null,
+      availableFrom: null,
+      isFurnished: false,
+      hasBalcony: false,
+      hasElevator: false,
+      rawPayload: null
+    });
+    const pending = {
+      score: 70,
+      eligibilityState: "UNSURE" as const,
+      eligibilityReason: "Pending LLM evaluation",
+      analysisFlags: [],
+      semanticFlags: [],
+      semanticModel: null
+    };
+
+    // Never classified: a null expectation matches a null column.
+    const [loaded] = await listListingsForEvaluation(db);
+    expect(loaded?.semanticUpdatedAt).toBeNull();
+    expect(await updateListingEvaluation(db, listing.id, { ...pending, expectedSemanticUpdatedAt: null })).not.toBeNull();
+
+    // An external verdict lands while the worker still holds the stale candidate.
+    await updateListingEvaluation(db, listing.id, {
+      ...pending,
+      eligibilityState: "MATCH",
+      eligibilityReason: "Reviewed externally",
+      semanticModel: "external:scout",
+      semanticInputFingerprint: "fp",
+      semanticUpdatedAt: new Date("2026-11-02T10:00:00.123Z")
+    });
+    expect(await updateListingEvaluation(db, listing.id, { ...pending, expectedSemanticUpdatedAt: loaded!.semanticUpdatedAt })).toBeNull();
+    expect(await getListingById(db, listing.id)).toMatchObject({ eligibilityState: "MATCH", semanticModel: "external:scout" });
+
+    // Microsecond timestamps written by SQL still match the millisecond JS value read back.
+    await db.execute(sql`update listings set semantic_updated_at = '2026-11-02T10:00:00.123456Z' where id = ${listing.id}`);
+    const [reloaded] = await listListingsForEvaluation(db);
+    expect(
+      await updateListingEvaluation(db, listing.id, {
+        ...pending,
+        eligibilityState: "MATCH",
+        eligibilityReason: "Reviewed externally",
+        semanticModel: "external:scout",
+        expectedSemanticUpdatedAt: reloaded!.semanticUpdatedAt
+      })
+    ).not.toBeNull();
   });
 });

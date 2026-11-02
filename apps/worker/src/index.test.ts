@@ -174,7 +174,8 @@ describe("runWorkerOnce", () => {
       description: "Kein WBS erforderlich. Ganze unbefristete Wohnung mit Anmeldung.",
       district: "Mitte", rentWarm: 1400, rooms: 3, sizeSqm: 80,
       eligibilityState: "REJECT", eligibilityReason: "Old keyword rejection",
-      semanticFlags: [], semanticInputFingerprint: null, llmAnalysis: null
+      semanticFlags: [], semanticInputFingerprint: null, llmAnalysis: null,
+      semanticUpdatedAt: new Date("2026-11-01T08:00:00.000Z")
     }]);
 
     const { runWorkerOnce } = await import("./index");
@@ -187,7 +188,8 @@ describe("runWorkerOnce", () => {
     expect(mocks.classifyListingEligibility).not.toHaveBeenCalled();
     expect(mocks.buildDeterministicTemplateAnalysis).not.toHaveBeenCalled();
     expect(mocks.updateListingEvaluation).toHaveBeenCalledWith(db, "negated-wbs", expect.objectContaining({
-      eligibilityState: "UNSURE", analysisFlags: ["long_term"]
+      eligibilityState: "UNSURE", analysisFlags: ["long_term"],
+      expectedSemanticUpdatedAt: new Date("2026-11-01T08:00:00.000Z")
     }));
   });
 

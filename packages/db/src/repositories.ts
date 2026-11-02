@@ -866,6 +866,10 @@ export async function updateListingEvaluation(
     llmLastErrorKind?: LlmErrorKind | null;
     llmLastErrorAt?: Date | null;
     llmAnalysis?: LlmAnalysis | null;
+    // Optimistic check for batch writers: skip the update when someone else
+    // (on-demand analysis, external verdict) classified the listing after the
+    // caller loaded it. Returns null in that case.
+    expectedSemanticUpdatedAt?: Date | null;
   }
 ) {
   const [row] = await db
@@ -889,7 +893,15 @@ export async function updateListingEvaluation(
       ...(payload.llmAnalysis !== undefined ? { llmAnalysis: payload.llmAnalysis } : {}),
       updatedAt: new Date()
     })
-    .where(eq(listings.id, id))
+    .where(
+      payload.expectedSemanticUpdatedAt === undefined
+        ? eq(listings.id, id)
+        : and(
+            eq(listings.id, id),
+            // JS dates carry milliseconds; Postgres may hold microseconds.
+            sql`date_trunc('milliseconds', ${listings.semanticUpdatedAt}) IS NOT DISTINCT FROM ${payload.expectedSemanticUpdatedAt}`
+          )
+    )
     .returning();
 
   return row ? serializeListing(row) : null;
@@ -935,6 +947,7 @@ export async function listListingsForEvaluation(db: Database) {
   return rows.map((row) => ({
     ...serializeListing(row),
     semanticInputFingerprint: row.semanticInputFingerprint,
+    semanticUpdatedAt: row.semanticUpdatedAt,
     semanticLastErrorKind: parseLlmErrorKind(row.semanticLastErrorKind),
     semanticLastErrorAt: row.semanticLastErrorAt,
     llmLastErrorKind: parseLlmErrorKind(row.llmLastErrorKind)

@@ -322,6 +322,8 @@ async function evaluateReviewQueue({
       semanticUpdatedAt,
       semanticLastErrorKind,
       semanticLastErrorAt,
+      // The run loads all candidates up front; never overwrite a verdict written since.
+      expectedSemanticUpdatedAt: candidate.semanticUpdatedAt,
       // When LLM succeeds, persist the analysis and clear any prior LLM error.
       ...(llmAnalysis !== undefined ? {
         llmAnalysis,
