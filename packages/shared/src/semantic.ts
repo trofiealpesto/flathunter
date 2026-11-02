@@ -19,6 +19,16 @@ export const semanticClassificationSchema = z.object({
 
 export type SemanticClassification = z.infer<typeof semanticClassificationSchema>;
 
+// Verdict from a reviewer outside the worker (e.g. a Rakazo agent via LifeHub).
+// Stored as `external:<agent>` in semantic_model.
+export const externalVerdictSchema = semanticClassificationSchema.extend({
+  reason: z.string().trim().min(1).max(500),
+  flags: z.array(semanticFlagSchema).max(semanticFlagSchema.options.length).default([]),
+  agent: z.string().regex(/^[a-z0-9-]{1,32}$/)
+});
+
+export type ExternalVerdict = z.infer<typeof externalVerdictSchema>;
+
 export const translationResultSchema = z.object({
   sourceLanguage: z.string().trim().min(1),
   translatedTitle: z.string().trim().min(1).nullable(),

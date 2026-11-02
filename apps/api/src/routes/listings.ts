@@ -2,8 +2,10 @@ import { z } from "zod";
 
 import { clearListingDuplicate, getListingById, getSettings, listListings, updateListingEvaluation, updateListingLlmState, updateListingStatus } from "@flathunter/db";
 import {
+  buildSemanticClassificationFingerprint,
   classifyListingEligibility,
   evaluateListingDeterministically,
+  externalVerdictSchema,
   formatRuntimeError,
   getLlmErrorKind,
   getRecommendedLlmTimeoutProfile,
@@ -136,6 +138,69 @@ export function registerListingRoutes(app: FastifyInstance, deps: AppDeps) {
       });
       return;
     }
+  });
+
+  // Stored like a cached classifier result: the worker keeps it until the listing
+  // text or the search rules change the semantic fingerprint. Only listings still
+  // waiting for semantic review qualify, so deterministic verdicts stay authoritative.
+  app.post("/api/listings/:id/external-verdict", async (request, reply) => {
+    if (!requireSession(request, reply, deps.env)) {
+      return;
+    }
+
+    const { id } = idParamsSchema.parse(request.params);
+    const parsed = externalVerdictSchema.safeParse(request.body);
+
+    if (!parsed.success) {
+      reply.code(400).send({
+        message: parsed.error.issues.map((issue) => `${issue.path.join(".") || "body"}: ${issue.message}`).join("; ")
+      });
+      return;
+    }
+
+    const listing = await getListingById(deps.db, id);
+
+    if (!listing) {
+      reply.code(404).send({
+        message: "Listing not found"
+      });
+      return;
+    }
+
+    const settings = await getSettings(deps.db);
+    const deterministic = evaluateListingDeterministically(listing, settings, {
+      commuteMinutes: listing.commuteMinutes,
+      firstSeenAt: listing.firstSeenAt
+    });
+
+    if (!settings.runtime.enableSemanticClassifier || !deterministic.shouldRunSemanticClassifier) {
+      reply.code(409).send({
+        message: `Listing is decided by deterministic rules: ${deterministic.reason}`
+      });
+      return;
+    }
+
+    if (listing.eligibilityState !== "UNSURE") {
+      reply.code(409).send({
+        message: `Listing is already ${listing.eligibilityState}`
+      });
+      return;
+    }
+
+    const verdict = parsed.data;
+    return updateListingEvaluation(deps.db, id, {
+      score: deterministic.score,
+      eligibilityState: verdict.eligibilityState,
+      eligibilityReason: verdict.reason,
+      analysisFlags: deterministic.analysisFlags,
+      semanticFlags: verdict.flags,
+      semanticModel: `external:${verdict.agent}`,
+      semanticFitScore: verdict.fitScore ?? null,
+      semanticInputFingerprint: buildSemanticClassificationFingerprint(listing, settings, deterministic.analysisFlags),
+      semanticUpdatedAt: new Date(),
+      semanticLastErrorKind: null,
+      semanticLastErrorAt: null
+    });
   });
 
   app.patch("/api/listings/:id/status", async (request, reply) => {

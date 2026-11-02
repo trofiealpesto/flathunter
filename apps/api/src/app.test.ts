@@ -2,8 +2,20 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { ensurePortalSource, getSettings, markPortalRun, upsertListing, type Database } from "@flathunter/db";
-import { canonicalizeListingUrl } from "@flathunter/shared";
+import {
+  ensurePortalSource,
+  getSettings,
+  listListingsForEvaluation,
+  markPortalRun,
+  patchSettings,
+  upsertListing,
+  type Database
+} from "@flathunter/db";
+import {
+  buildSemanticClassificationFingerprint,
+  canonicalizeListingUrl,
+  evaluateListingDeterministically
+} from "@flathunter/shared";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -416,6 +428,57 @@ describe("api app", () => {
         translationModel: null
       })
     });
+  });
+
+  it("stores external verdicts so the worker reuses them", async () => {
+    const headers = { "x-lifehub-token": "lifehub-internal-token-for-tests-123" };
+    const verdict = (body: unknown) =>
+      app.inject({ method: "POST", url: "/api/listings/1/external-verdict", headers, payload: body as object });
+
+    const invalid = await verdict({ eligibilityState: "MATCH", reason: "ok", agent: "Not Valid" });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json().message).toContain("agent");
+
+    const response = await verdict({
+      eligibilityState: "REJECT",
+      reason: "Furnished short-term sublet until March.",
+      flags: ["SHORT_TERM", "FURNISHED"],
+      fitScore: 10,
+      agent: "scout"
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      eligibilityState: "REJECT",
+      eligibilityReason: "Furnished short-term sublet until March.",
+      semanticFlags: ["SHORT_TERM", "FURNISHED"],
+      semanticModel: "external:scout",
+      semanticFitScore: 10
+    });
+
+    // Same inputs the worker uses: its cached-classification check must hit.
+    const settings = await getSettings(db);
+    const [candidate] = await listListingsForEvaluation(db);
+    const { analysisFlags } = evaluateListingDeterministically(candidate!, settings, {});
+    expect(candidate!.semanticInputFingerprint).toBe(buildSemanticClassificationFingerprint(candidate!, settings, analysisFlags));
+
+    const again = await verdict({ eligibilityState: "MATCH", reason: "Changed my mind.", agent: "scout" });
+    expect(again.statusCode).toBe(409);
+    expect(again.json().message).toBe("Listing is already REJECT");
+  });
+
+  it("refuses external verdicts on deterministically decided listings", async () => {
+    await patchSettings(db, { scoring: { maxWarmRent: 900 } });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/listings/1/external-verdict",
+      headers: { "x-lifehub-token": "lifehub-internal-token-for-tests-123" },
+      payload: { eligibilityState: "MATCH", reason: "Looks great.", agent: "scout" }
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().message).toContain("deterministic rules");
   });
 
   it("drafts, records, and lists contact attempts for a listing", async () => {
