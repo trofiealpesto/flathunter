@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  AVAILABLE_NOW,
   looksBlockedInberlinwohnenPage,
   looksLikeInberlinwohnenResultsPage,
+  parseInberlinwohnenAvailableFrom,
   parseInberlinwohnenResultsCount,
   parseInberlinwohnenSearchResults
 } from "./parser";
@@ -63,6 +65,43 @@ describe("parseInberlinwohnenSearchResults", () => {
 
     expect(withBalcony.length).toBeGreaterThan(0);
     expect(withElevator.length).toBeGreaterThan(0);
+  });
+
+  it("reads an occupation date equal to the posting day as available now", () => {
+    const second = parseInberlinwohnenSearchResults(searchHtml)[1];
+
+    expect(second.occupationDate).toBe("09.06.2026");
+    expect(second.postedAt).toMatch(/^2026-06-09T/);
+    expect(second.availableFrom).toBe(AVAILABLE_NOW);
+  });
+});
+
+describe("parseInberlinwohnenAvailableFrom", () => {
+  it("keeps a future move-in date", () => {
+    expect(parseInberlinwohnenAvailableFrom("01.02.2027", "2026-11-10T17:15:06.000000Z")).toBe("2027-02-01");
+  });
+
+  it("treats the posting day as available now", () => {
+    expect(parseInberlinwohnenAvailableFrom("10.11.2026", "2026-11-10T17:28:08.000000Z")).toBe(AVAILABLE_NOW);
+  });
+
+  it("treats a date before the posting day as available now", () => {
+    expect(parseInberlinwohnenAvailableFrom("01.10.2026", "2026-10-29T15:42:06.000000Z")).toBe(AVAILABLE_NOW);
+  });
+
+  it("compares with the posting day in Berlin, not UTC", () => {
+    // 23:30 UTC on 10 Nov is already 11 Nov in Berlin.
+    expect(parseInberlinwohnenAvailableFrom("11.11.2026", "2026-11-10T23:30:00.000000Z")).toBe(AVAILABLE_NOW);
+    expect(parseInberlinwohnenAvailableFrom("12.11.2026", "2026-11-10T23:30:00.000000Z")).toBe("2026-11-12");
+  });
+
+  it("keeps the date when the posting time is missing", () => {
+    expect(parseInberlinwohnenAvailableFrom("10.11.2026", null)).toBe("2026-11-10");
+  });
+
+  it("drops malformed dates and typo years", () => {
+    expect(parseInberlinwohnenAvailableFrom("ready_for_occupancy", "2026-11-10T10:00:00Z")).toBeNull();
+    expect(parseInberlinwohnenAvailableFrom("20.10.0026", "2026-10-29T15:42:06.000000Z")).toBeNull();
   });
 });
 
