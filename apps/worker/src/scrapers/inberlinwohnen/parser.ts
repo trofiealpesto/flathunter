@@ -13,7 +13,10 @@ export type InberlinwohnenItem = {
   rentCold: number | null;
   extraCosts: number | null;
   rentWarm: number | null;
+  /** ISO date, or AVAILABLE_NOW when the portal's date is just the posting day. */
   availableFrom: string | null;
+  /** Portal value as published ("01.07.2026"), kept for auditing availableFrom. */
+  occupationDate: string | null;
   postedAt: string | null;
   floor: number | null;
   floorsTotal: number | null;
@@ -97,16 +100,47 @@ function asCoordinate(value: unknown): number | null {
   return null;
 }
 
-/** "01.07.2026" → "2026-07-01" */
+/** "01.07.2026" → "2026-07-01". Typo years such as "20.10.0026" are dropped. */
 function parseGermanDate(value: unknown): string | null {
   const text = asString(value);
   const match = text?.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
 
-  if (!match) {
+  if (!match || Number(match[3]) < 2000) {
     return null;
   }
 
   return `${match[3]}-${match[2]}-${match[1]}`;
+}
+
+export const AVAILABLE_NOW = "sofort";
+
+const berlinDayFormat = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" });
+
+/** Calendar day in Berlin of an ISO timestamp: "2026-11-10T23:30:00Z" → "2026-11-11". */
+function berlinDay(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : berlinDayFormat.format(date);
+}
+
+/**
+ * The housing companies' "Bezugsfrei ab sofort" reaches inberlinwohnen as an
+ * occupationDate equal to the publication day, so a date on or before the
+ * posting day means "available now", not that calendar day. Comparing with
+ * the posting day (not today) keeps the value stable across scrapes.
+ */
+export function parseInberlinwohnenAvailableFrom(occupationDate: unknown, postedAt: string | null): string | null {
+  const date = parseGermanDate(occupationDate);
+  const postedDay = berlinDay(postedAt);
+
+  if (date && postedDay && date <= postedDay) {
+    return AVAILABLE_NOW;
+  }
+
+  return date;
 }
 
 function collectDetailLabels(value: unknown, out: Map<string, unknown>) {
@@ -163,6 +197,7 @@ function parseApartmentSnapshot(snapshotJson: string, badges: string[]): Inberli
 
   const normalizedBadges = badges.map((badge) => badge.toLowerCase());
   const levelRaw = item.level;
+  const postedAt = asString(item.createdAt);
 
   return {
     flatId,
@@ -175,8 +210,9 @@ function parseApartmentSnapshot(snapshotJson: string, badges: string[]): Inberli
     rentCold: asNumber(item.rentNet),
     extraCosts: asNumber(item.extraCosts),
     rentWarm: asNumber(details.get("Gesamtmiete")) ?? asNumber(item.rentGross),
-    availableFrom: parseGermanDate(item.occupationDate),
-    postedAt: asString(item.createdAt),
+    availableFrom: parseInberlinwohnenAvailableFrom(item.occupationDate, postedAt),
+    occupationDate: asString(item.occupationDate),
+    postedAt,
     floor: typeof levelRaw === "number" ? levelRaw : null,
     floorsTotal: typeof item.levelsTotal === "number" ? item.levelsTotal : null,
     constructionYear: asString(item.constructionYear),
