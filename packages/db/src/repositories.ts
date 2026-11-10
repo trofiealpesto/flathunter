@@ -30,6 +30,7 @@ import {
   analysisFlags,
   appSettingsPatchSchema,
   appSettingsSchema,
+  berlinToday,
   buildAnalysisInputFingerprint,
   defaultAppSettings,
   eligibilityStates,
@@ -37,6 +38,7 @@ import {
   haversineDistanceKm,
   llmAnalysisSchema,
   llmErrorKindSchema,
+  matchesMoveInFilter,
   portalSourceAuthUpsertSchema,
   portalSourcePatchSchema,
   portals,
@@ -753,7 +755,11 @@ export async function listListings(db: Database, filters: ListingFilters) {
 
   const settings = await getSettings(db);
   const officeLocation = getOfficeLocation(settings);
-  return rows.map((row) => serializeListing(row, officeLocation, settings));
+  // Move-in dates are free text per portal, so the range is matched after parsing in JS.
+  const today = berlinToday();
+  return rows
+    .filter((row) => matchesMoveInFilter(row.availableFrom, filters, today))
+    .map((row) => serializeListing(row, officeLocation, settings));
 }
 
 export async function getListingById(db: Database, id: number) {

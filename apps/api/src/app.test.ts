@@ -214,6 +214,19 @@ describe("api app", () => {
     expect(response.statusCode).toBe(200);
   });
 
+  it("rejects a malformed move-in filter with 400", async () => {
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/listings?moveInBy=01.12.2026",
+      headers: {
+        "x-lifehub-token": "lifehub-internal-token-for-tests-123"
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toContain("moveInBy");
+  });
+
   it("rejects an invalid internal LifeHub credential", async () => {
     const response = await app.inject({
       method: "GET",

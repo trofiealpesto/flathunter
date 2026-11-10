@@ -85,6 +85,32 @@ describe("repositories", { timeout: 20_000 }, () => {
     expect((await listListings(db, { sort: "newest" })).map((listing) => listing.id)).toEqual([recent.id, coldOnly.id, old.id]);
   });
 
+  it("filters by move-in range across date formats", async () => {
+    const db = await createTestDb();
+    const base = {
+      portal: "GEWOBAG" as const, title: "Apartment", description: null, addressLine: null,
+      city: "Berlin", district: "Mitte", neighborhood: null, latitude: null, longitude: null,
+      rentCold: 700, rentWarm: 950, sizeSqm: 60, rooms: 2, floor: null,
+      isFurnished: false, hasBalcony: false, hasElevator: false, rawPayload: null
+    };
+    const insert = (id: string, availableFrom: string | null) =>
+      upsertListing(db, { ...base, portalListingId: id, availableFrom,
+        url: `https://www.gewobag.de/${id}`, canonicalUrl: `https://www.gewobag.de/${id}` });
+    const now = await insert("now", "sofort");
+    const german = await insert("german", "01.02.2099");
+    const iso = await insert("iso", "2099-03-15");
+    const unknown = await insert("unknown", null);
+    const ids = async (filters: Parameters<typeof listListings>[1]) =>
+      (await listListings(db, filters)).map((listing) => listing.id).sort();
+
+    expect(await ids({ moveInBy: "2099-02-28" })).toEqual([now.id, german.id].sort());
+    expect(await ids({ moveInFrom: "2099-02-01" })).toEqual([german.id, iso.id].sort());
+    expect(await ids({ moveInFrom: "2099-02-01", moveInBy: "2099-02-28", includeUnknownMoveIn: true })).toEqual(
+      [german.id, unknown.id].sort()
+    );
+    expect(await ids({ includeUnknownMoveIn: false })).toHaveLength(4);
+  });
+
   it("upserts a listing by portal listing id", async () => {
     const db = await createTestDb();
 
