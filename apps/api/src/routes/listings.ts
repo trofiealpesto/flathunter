@@ -27,8 +27,16 @@ export function registerListingRoutes(app: FastifyInstance, deps: AppDeps) {
       return;
     }
 
-    const filters = listingFilterSchema.parse(request.query);
-    return listListings(deps.db, filters);
+    const parsed = listingFilterSchema.safeParse(request.query);
+
+    if (!parsed.success) {
+      reply.code(400).send({
+        message: parsed.error.issues.map((issue) => `${issue.path.join(".") || "query"}: ${issue.message}`).join("; ")
+      });
+      return;
+    }
+
+    return listListings(deps.db, parsed.data);
   });
 
   app.get("/api/listings/:id", async (request, reply) => {

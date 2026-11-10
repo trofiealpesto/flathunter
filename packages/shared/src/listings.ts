@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { listingGeoSourceSchema } from "./geo";
 import { llmAnalysisSchema, llmAnalysisStatusSchema } from "./llm-analysis";
+import { isIsoDay } from "./move-in";
 
 export const portals = ["IMMOWELT", "IMMOSCOUT24", "KLEINANZEIGEN", "WG_GESUCHT", "FLATSFORFRIENDZ", "INBERLINWOHNEN", "HOWOGE", "GEWOBAG"] as const;
 export const userStatuses = ["NEW", "REVIEWED", "CONTACTED", "REJECTED", "BLACKLISTED"] as const;
@@ -32,6 +33,9 @@ export const analysisFlagSchema = z.enum(analysisFlags);
 export const listingSortValues = ["best", "newest"] as const;
 export const listingSortSchema = z.enum(listingSortValues);
 
+const booleanQuerySchema = z.union([z.boolean(), z.enum(["true", "false"]).transform((value) => value === "true")]);
+const isoDaySchema = z.string().refine(isIsoDay, "Expected a YYYY-MM-DD date");
+
 export const listingFilterSchema = z.object({
   portal: portalSchema.optional(),
   userStatus: userStatusSchema.optional(),
@@ -43,8 +47,14 @@ export const listingFilterSchema = z.object({
   seenWithinDays: z.coerce.number().int().min(1).max(365).optional(),
   district: z.string().trim().min(1).optional(),
   query: z.string().trim().min(1).optional(),
+  /** Earliest acceptable move-in day; "sofort" and past dates count as today. */
+  moveInFrom: isoDaySchema.optional(),
+  /** Latest acceptable move-in day. */
+  moveInBy: isoDaySchema.optional(),
+  /** Keep listings without a usable move-in date when a move-in range is set. */
+  includeUnknownMoveIn: booleanQuerySchema.optional(),
   sort: listingSortSchema.optional(),
-  includeDuplicates: z.union([z.boolean(), z.enum(["true", "false"]).transform((value) => value === "true")]).optional()
+  includeDuplicates: booleanQuerySchema.optional()
 });
 
 export const listingBaseSchema = z.object({

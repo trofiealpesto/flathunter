@@ -9,6 +9,7 @@ export * from "./geo";
 export * from "./llm";
 export * from "./llm-analysis";
 export * from "./listings";
+export * from "./move-in";
 export * from "./scoring";
 export * from "./semantic";
 export * from "./settings";
