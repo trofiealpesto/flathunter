@@ -815,7 +815,7 @@ export async function createContactAttempt(
 ): Promise<ContactAttempt | null> {
   const listing = await db.query.listings.findFirst({
     where: eq(listings.id, listingId),
-    columns: { id: true }
+    columns: { id: true, userStatus: true }
   });
 
   if (!listing) {
@@ -834,11 +834,18 @@ export async function createContactAttempt(
     })
     .returning();
 
-  // A successful or manual attempt means the listing has been contacted.
+  // A successful or manual attempt means the listing has been contacted. A failed
+  // attempt takes a queued listing out of the contact queue, so the bot does not
+  // retry it on every run; the user re-queues it after reading the error.
   if (payload.status !== "FAILED") {
     await db
       .update(listings)
       .set({ userStatus: "CONTACTED", updatedAt: new Date() })
+      .where(eq(listings.id, listingId));
+  } else if (listing.userStatus === "TO_CONTACT") {
+    await db
+      .update(listings)
+      .set({ userStatus: "REVIEWED", updatedAt: new Date() })
       .where(eq(listings.id, listingId));
   }
 
