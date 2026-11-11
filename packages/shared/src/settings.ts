@@ -106,7 +106,9 @@ export const appSettingsSchema = z.object({
     fullName: z.string().trim(),
     shortBio: z.string().trim(),
     email: z.string().email().or(z.literal("")),
-    phone: z.string().trim()
+    phone: z.string().trim(),
+    /** Message the user wants to send; drafts and the contact bot adapt it to each listing. */
+    contactTemplate: z.string().trim().default("")
   })
 });
 
@@ -159,6 +161,7 @@ export const defaultAppSettings: AppSettings = {
     fullName: "",
     shortBio: "",
     email: "",
-    phone: ""
+    phone: "",
+    contactTemplate: ""
   }
 };

@@ -33,6 +33,7 @@ import {
   updateListingEvaluation,
   putPortalCredentials,
   updateListingLlmState,
+  updateListingStatus,
   upsertPortalSessionState,
   updatePortalSource,
   upsertListing
@@ -242,6 +243,47 @@ describe("repositories", { timeout: 20_000 }, () => {
       errorMessage: null
     });
     expect(missing).toBeNull();
+  });
+
+  it("moves queued listings out of TO_CONTACT on every outcome", async () => {
+    const db = await createTestDb();
+    const base = {
+      portal: "GEWOBAG" as const, title: "Wohnung", description: null, addressLine: null,
+      city: "Berlin", district: "Mitte", neighborhood: null, latitude: null, longitude: null,
+      rentCold: 700, rentWarm: 950, sizeSqm: 60, rooms: 2, floor: null, availableFrom: null,
+      isFurnished: false, hasBalcony: false, hasElevator: false, rawPayload: null
+    };
+    const insert = (id: string) =>
+      upsertListing(db, { ...base, portalListingId: id, url: `https://www.gewobag.de/${id}`, canonicalUrl: `https://www.gewobag.de/${id}` });
+    const sent = await insert("sent");
+    const failed = await insert("failed");
+    const untouched = await insert("untouched");
+    await updateListingStatus(db, sent.id, "TO_CONTACT");
+    await updateListingStatus(db, failed.id, "TO_CONTACT");
+    expect((await listListings(db, { userStatus: "TO_CONTACT" })).map((listing) => listing.id).sort()).toEqual(
+      [sent.id, failed.id].sort()
+    );
+
+    const attempt = { channel: "PORTAL_FORM" as const, messageSubject: null, messageBody: "Hallo", errorMessage: null };
+    await createContactAttempt(db, sent.id, { ...attempt, status: "SENT" });
+    await createContactAttempt(db, failed.id, { ...attempt, status: "FAILED", errorMessage: "login required" });
+    await createContactAttempt(db, untouched.id, { ...attempt, status: "FAILED", errorMessage: "form missing" });
+
+    expect((await getListingById(db, sent.id))?.userStatus).toBe("CONTACTED");
+    expect((await getListingById(db, failed.id))?.userStatus).toBe("REVIEWED");
+    expect((await getListingById(db, untouched.id))?.userStatus).toBe("NEW");
+    expect(await listListings(db, { userStatus: "TO_CONTACT" })).toEqual([]);
+  });
+
+  it("keeps settings saved before the contact template existed", async () => {
+    const db = await createTestDb();
+    const settings = await getSettings(db);
+    const { contactTemplate: _dropped, ...legacyProfile } = settings.profile;
+    await db.update(schema.appSettings).set({ data: { ...settings, profile: legacyProfile } as typeof settings }).where(eq(schema.appSettings.key, "default"));
+
+    expect((await getSettings(db)).profile.contactTemplate).toBe("");
+    const patched = await patchSettings(db, { profile: { contactTemplate: "Sehr geehrte Damen und Herren, ..." } });
+    expect(patched.profile.contactTemplate).toBe("Sehr geehrte Damen und Herren, ...");
   });
 
   it("flags cross-portal duplicates and hides them from default listings", async () => {

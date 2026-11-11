@@ -5,7 +5,8 @@ import { llmAnalysisSchema, llmAnalysisStatusSchema } from "./llm-analysis";
 import { isIsoDay } from "./move-in";
 
 export const portals = ["IMMOWELT", "IMMOSCOUT24", "KLEINANZEIGEN", "WG_GESUCHT", "FLATSFORFRIENDZ", "INBERLINWOHNEN", "HOWOGE", "GEWOBAG"] as const;
-export const userStatuses = ["NEW", "REVIEWED", "CONTACTED", "REJECTED", "BLACKLISTED"] as const;
+// TO_CONTACT queues a listing for the contact bot; it leaves the queue as CONTACTED or REVIEWED.
+export const userStatuses = ["NEW", "REVIEWED", "TO_CONTACT", "CONTACTED", "REJECTED", "BLACKLISTED"] as const;
 export const eligibilityStates = ["MATCH", "UNSURE", "REJECT"] as const;
 export const contactChannels = ["PORTAL_FORM", "EMAIL", "PHONE", "OTHER"] as const;
 export const contactStatuses = ["SENT", "FAILED", "MANUAL"] as const;

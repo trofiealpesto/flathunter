@@ -1284,11 +1284,22 @@ export async function generateListingEnglishAnalyst(
 
 function buildApplicationMessagePrompt(listing: LlmListingInput, settings: AppSettings) {
   const profile = settings.profile;
+  const template = profile.contactTemplate?.trim();
+  const shape = template
+    ? [
+        "Start from the applicant's template below and adapt it lightly to this listing: keep its structure, tone, language and every fact about the applicant;",
+        "change only the greeting, references to this specific apartment (address, district, rooms, size, move-in date) and anything the listing explicitly asks applicants to mention.",
+        "Never add claims about the applicant that are not in the template or the profile.",
+        `Applicant template:\n${truncatePromptText(template, PROMPT_DESCRIPTION_MAX_CHARS)}`
+      ]
+    : [
+        "Write in German with a formal, polite tone (Sie form).",
+        "The body must be roughly 120-180 words: brief intro of the applicant, why this specific listing fits, availability for a viewing, and a polite closing with the applicant's name."
+      ];
 
   return [
-    "You write rental application messages for a Berlin apartment hunt.",
-    "Write in German with a formal, polite tone (Sie form). Plain text only, no markdown.",
-    "The body must be roughly 120-180 words: brief intro of the applicant, why this specific listing fits, availability for a viewing, and a polite closing with the applicant's name.",
+    "You write rental application messages for a Berlin apartment hunt. Plain text only, no markdown.",
+    ...shape,
     "Mention concrete listing details (district, rooms, size) naturally — never invent facts that are not in the data below.",
     "Do not mention scores, dashboards, or that this message was generated.",
     "Return strict JSON matching the schema.",
